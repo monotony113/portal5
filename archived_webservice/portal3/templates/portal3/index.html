@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>portal3</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/static/twu/styles/style.css" />
+</head>
+
+<body>
+    <article>
+        <h1><code>portal3</code></h1>
+
+        <p>A portal to the World<a href="#ps"><sup>*</sup></a> Wide Web, man-in-the-middle style.</p>
+        <p>This website tries to load another webpage for you, even if that webpage is otherwise not accessible where you are (e.g. due to internet censorship).</p>
+
+        <h2>Try it out</h2>
+
+        <blockquote>
+            <pre><code><a href="{{ protocol }}://{{ domain }}/portal3/https://www.google.com" target="_blank"><mark>{{ protocol }}://{{ domain }}/portal3/https://www.google.com</mark></a></code></pre>
+        </blockquote>
+        <p>The above URL will load Google's frontpage in a new tab/window, even if you are in a location where Google is not accessible.</p>
+        <p>You will notice that the domain name of the page's location stays at <strong><code>{{ domain }}</code></strong>. Google's search function will be functional. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ domain }}</code></strong> when you click on any of the search results.</p>
+
+        <h2>Usage</h2>
+
+        <p>In your browser, visit</p>
+        <pre class="text-center-aligned"><code>{{ protocol }}://{{ domain }}/portal3/<em>&lt;url&gt;</em></code></pre>
+        <p>where <em><code>&lt;url&gt;</code></em> is the URL to the actual webpage you'd like to visit.</p>
+        <p>For example, if you are trying to visit <code>https://example.org</code>, visit <code>{{ protocol }}://{{ domain }}/portal3/https://example.org</em></code>
+        </pre>
+        </p>
+        <p>You <strong>must</strong> include the URL protocol in your request. That is, your URL must begin with <code>https:</code> or <code>http:</code>.</p>
+
+        <p>It also supports other HTTP methods, such as <code>POST</code>:</p>
+        <blockquote>
+            <pre><code><strong>$</strong> curl -X POST {{ protocol }}://{{ domain }}/portal3/\<br>https://example.org/login.php</em></code></pre>
+        </blockquote>
+
+        <h2>Design</h2>
+
+        <p>This website works simply by first fetching the URL and then delivering the content to you. It is a proxy but with a much limited use.</p>
+        <p>If you are visiting a webpage, then to preserve the functionality of the page as much as possible, it also makes the effort to resolve relative URLs, rewrite HTTP 3xx redirects, and modify cookies that specify domains/paths.</p>
+
+        <h2>Caveats</h2>
+
+        <p><strong>Because of the hacky nature of this app, many things will not work the same way as if you are directly visiting a webpage:</strong></p>
+        <ul>
+            <li>
+                <strong>Requests to other domains</strong> will not go through this server by definition. The requests fired by your browser go directly to their domains.
+                <ul>
+                    <li>This applies even to requests that are actually on the same domain, if the link has the domain name hard-coded into it.</li>
+                    <li>
+                        Likewise, if you click on a link that specifies a domain, you will leave this website. You can instead copy the URL first then visit it prefixed with the URL to this page (see usage).
+                    </li>
+                </ul>
+            </li>
+            <li>
+                Any <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS" target="_blank"><strong>CORS request</strong></a> with an <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin" target="_blank"><strong><code>Access-Control-Allow-Origin</code></strong></a> header set to anything other than <code>*</code> or not set will be blocked.
+                <ul>
+                    <li>Single-page applications that rely heavily on JavaScript APIs likely will not work at all.</li>
+                </ul>
+            </li>
+            <li>
+                Resources protected by <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP" target="_blank"><strong>Content Security Policy (CSP)</strong></a> will be blocked.
+            </li>
+            <li>
+                Sites that rely on <strong>cookies</strong> may behave strangely, because cookies that are otherwise stored under different domains are now stored under the same domain, and they may interfere with each other.
+            </li>
+        </ul>
+
+        <p>Additionally, while this website does not store, decode, or modify the requested contents (the <code>body</code>), and raw data received from the destination is directly piped, it does have to decrypt the data first, if you are visiting a page through HTTPS, and the re-encrypt it before sending it to you. That is to say, this website do <strong>have access</strong> to the unencrypted data you are receiving.</p>
+        <p>That is also to say, the content delivered to your browser is no longer signed by the website you are trying to visit, but is instead signed by this website (<code>{{ domain }}</code>). <mark>You should never trust any data delivered to you in this manner.</mark></p>
+
+        <h2>Why?</h2>
+        <p>Trying to creatively circumvent internet censorship.</p>
+
+        <h2>Source code</h2>
+        <p><a href="https://github.com/monotony113/archived_webservice" target="_blank">GitHub</a></p>
+        <p>Written in Python using Flask and the <code>requests</code> library.</p>
+        <p>License: AGPLv3.</p>
+
+        <h6 id="ps">*: The part that is accessible to this website.</h6>
+
+    </article>
+</body>
+
+</html>

@@ -16,17 +16,33 @@
 
 import secrets
 
-from flask import Flask
+from flask import Flask, request, render_template
 
-from .portal3 import portal3
+from . import portal3
+
+
+def index():
+    return render_template('index.html')
+
+
+def handle_not_found(remote):
+    if 'portal3-remote-scheme' in request.cookies:
+        return portal3.from_absolute_path()
+    return '<h1>Not found.</h1>', 404
 
 
 def create_app(*, config=None) -> Flask:
     app = Flask(
         __name__,
-        instance_relative_config=True
+        instance_relative_config=True,
     )
     app.secret_key = secrets.token_urlsafe(20)
-    app.register_blueprint(portal3, url_prefix='/portal3')
+
+    app.route('/')(index)
+    app.register_blueprint(portal3.portal3, url_prefix='/portal3')
+    app.register_error_handler(404, handle_not_found)
 
     return app
+
+
+app = create_app()
