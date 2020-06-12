@@ -24,7 +24,7 @@
             <pre><code><a href="{{ protocol }}://{{ domain }}/portal3/https://www.google.com" target="_blank"><mark>{{ protocol }}://{{ domain }}/portal3/https://www.google.com</mark></a></code></pre>
         </blockquote>
         <p>The above URL will load Google's frontpage in a new tab/window, even if you are in a location where Google is not accessible.</p>
-        <p>You will notice that the domain name of the page's location stays at <strong><code>{{ domain }}</code></strong>. Google's search function will be functional. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ domain }}</code></strong> when you click on any of the search results.</p>
+        <p>You will notice that the domain part of the page's URL stays at <strong><code>{{ domain }}</code></strong>. Google's search function will be working. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ domain }}</code></strong> when you click on any of the search results.</p>
 
         <h2>Usage</h2>
 
@@ -48,10 +48,10 @@
 
         <h2>Caveats</h2>
 
-        <p><strong>Because of the hacky nature of this tool, many things will not work the same way as if you are directly visiting a webpage:</strong></p>
+        <p><strong>Because of the hacky nature of this tool, many things will break:</strong></p>
         <ul>
             <li>
-                <strong>Requests to other domains</strong> will not go through this server by definition. The requests fired by your browser go directly to their domains.
+                <strong>Requests to other domains</strong> will not go through this server by design. The requests fired by your browser go directly to their domains.
                 <ul>
                     <li>This applies even to requests that are actually on the same domain, if the link has the domain name hard-coded into it.</li>
                     <li>
@@ -80,7 +80,7 @@
         <p>Trying to creatively circumvent internet censorship.</p>
 
         <h2>Disclaimer</h2>
-        <p>This is an experiment that I did to see how much of the functionalities of an HTML webpage can be recovered if a middle server is used to transport another server's content.</p>
+        <p>This is an experiment that I did that came out of the desire to have unrestricted internet access. It started off as a simple script that only transports HTTP content directly, but then I pushed to see how much an HTML webpage can still function when loaded this way.</p>
         <p>If you are playing with this tool, avoid entering any sensitive data such as passwords and credit card info, because in the event where your browser did not block the transferring of such info, they <strong>will</strong> be decrypted on my server.</p>
         <p>If you decide to host this on your own domain, be advised that there are mechanisms (such as CSP reports) to detect malicious forgeries that this tool is doing — your domain could be reported to the websites from whom your server is requesting data.</p>
 

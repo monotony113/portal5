@@ -21,11 +21,10 @@ from textwrap import dedent
 from urllib.parse import urljoin, urlsplit, urlunsplit, unquote, SplitResult
 
 import requests
-from requests.cookies import RequestsCookieJar
-from flask import stream_with_context, Blueprint, Flask, Request, Response, make_response, render_template, redirect, g
+from flask import Blueprint, Request, Response, stream_with_context, make_response, render_template, redirect, g
 from flask import request as req
+from requests.cookies import RequestsCookieJar
 
-current_app: Flask
 req: Request
 portal3 = Blueprint('portal3', __name__, template_folder='templates')
 
@@ -42,19 +41,24 @@ def collect_data_from_request(endpoint, values: dict):
     g.req_cookies = dict(**req.cookies)
     g.req_data = dict(**req.form) or req.data
     g.req_fetch_mode = g.req_headers.get('Sec-Fetch-Mode')
-    g.req_referrer = urlsplit(g.req_headers.get('Referer', ''))
+    g.server = f'{g.req_url_parts.scheme}://{g.req_url_parts.netloc}'
+
+    referrer = g.req_headers.get('Referer')
+    g.req_referrer = urlsplit(referrer) if referrer else None
 
     if 'remote' in values:
         g.remote_url_parts = normalize_url(unquote(values['remote']))
+
+        g.direct_request = g.req_cookies.get('portal3-remote-redirect', False)
+        g.prefix = '/portal3/'
 
         g.base_scheme = g.req_cookies.get('portal3-remote-scheme')
         g.base_domain = g.req_cookies.get('portal3-remote-domain')
         g.referred_by = g.req_cookies.get('portal3-remote-referrer')
         g.referred_by = g.referred_by and urlsplit(g.referred_by)
-
-        g.direct_request = g.req_cookies.get('portal3-remote-redirect', False)
-        g.server = f'{g.req_url_parts.scheme}://{g.req_url_parts.netloc}'
-        g.prefix = '/portal3/'
+        if g.base_scheme and g.req_referrer and not g.referred_by:
+            referrer = referrer[len(f'{g.server}{g.prefix}'):]
+            g.referred_by = urlsplit(referrer)
 
         g.req_headers.pop('Host', None)
         g.req_headers.pop('Referer', None)
@@ -74,11 +78,11 @@ def forward(remote):
     if (
         not g.direct_request
         and (not g.req_fetch_mode or g.req_fetch_mode not in ('navigate', 'nested-navigate'))
-        and g.referred_by
+        and g.referred_by and g.referred_by.scheme and g.referred_by.netloc
         and remote_parts.netloc != g.base_domain
     ):
         base_url_parts = urlsplit(urljoin(g.referred_by.geturl(), '.'))
-        subpath = f'{g.remote_url_parts.netloc}/{g.remote_url_parts.path}'.lstrip('/')
+        subpath = f'{g.remote_url_parts.netloc}/{g.remote_url_parts.path}'.strip('/')
         remote_parts = urlsplit(urljoin(base_url_parts.geturl(), subpath))
 
     if remote_parts.scheme not in ('http', 'https'):
@@ -90,10 +94,11 @@ def forward(remote):
             return render_template('portal3/missing-protocol.html', server=g.server, prefix=g.prefix, remote=remote), 400
         else:
             return f'Unsupported URL scheme "{remote_parts.scheme}"', 400
+
     if not remote_parts.netloc:
         return 'No website specified.', 400
 
-    if g.remote_url_parts is remote_parts:
+    if g.remote_url_parts == remote_parts:
         url = remote_parts.geturl()
         try:
             requests_res, res = pipe_request(
@@ -130,7 +135,7 @@ def forward(remote):
 
         if not g.direct_request:
             set_cookies(res, scheme=remote_parts.scheme, domain=remote_parts.netloc, max_age=None)
-            set_cookies(res, path=f'{g.prefix}{urljoin(url, ".")}', referrer=remote_parts.geturl())
+            set_cookies(res, path=f'{g.prefix}{urljoin(url, ".")}', referrer=remote_parts.geturl(), max_age=None)
 
         return res
 
@@ -156,14 +161,12 @@ def masquerade(cookie_jar: RequestsCookieJar, headers: dict) -> Tuple[list, dict
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
         cookie_domain = request.netloc if cookie.domain_specified else None
-        cookie_path = f'{g.get("prefix")}{remote.scheme}://{remote.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
+        cookie_path = f'{g.prefix}{remote.scheme}://{remote.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
         cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
 
     if 'Location' in headers:
-        location = urlsplit(headers['Location'])
-        if location.scheme:
-            headers['Location'] = f'{g.get("prefix")}{headers["Location"]}'
+        headers['Location'] = f'{g.server}{g.prefix}{urljoin(remote.geturl(), headers["Location"])}'
 
     return cookies, headers
 
@@ -179,7 +182,7 @@ def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Respo
 
     def pipe(response: requests.Response):
         while True:
-            chunk = response.raw.read(128)
+            chunk = response.raw.read(65536)
             if not chunk:
                 break
             yield chunk
