@@ -31,7 +31,11 @@ def index():
 def handle_not_found(remote):
     if 'portal3-remote-scheme' in request.cookies:
         return portal3.from_absolute_path()
-    return render_template('404.html'), 404
+    return render_template('httperr.html', statuscode=404), 404
+
+
+def handle_error(e):
+    return render_template('httperr.html', statuscode=e.code, message=e.description), e.code
 
 
 def create_app(*, config=None) -> Flask:
@@ -44,6 +48,8 @@ def create_app(*, config=None) -> Flask:
     app.route('/')(index)
     app.register_blueprint(portal3.portal3, url_prefix='/portal3')
     app.register_error_handler(404, handle_not_found)
+    for code in (400, 500, 502):
+        app.register_error_handler(code, handle_error)
 
     return app
 

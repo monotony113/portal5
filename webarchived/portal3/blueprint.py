@@ -21,7 +21,7 @@ from textwrap import dedent
 from urllib.parse import urljoin, urlsplit, urlunsplit, unquote, SplitResult
 
 import requests
-from flask import Blueprint, Request, Response, stream_with_context, make_response, render_template, redirect, g
+from flask import Blueprint, Request, Response, stream_with_context, render_template, redirect, g, abort
 from flask import request as req
 from requests.cookies import RequestsCookieJar
 
@@ -110,23 +110,23 @@ def forward(remote):
         # except Exception as e:
         #     raise e
         except requests.HTTPError as e:
-            return make_response(f'Got HTTP {e.response.status_code} while accessing {url}', e.response.status_code)
+            abort(int(e.response.status_code), f'Got HTTP {e.response.status_code} while accessing <code>{url}</code>')
         except requests.exceptions.TooManyRedirects:
-            return make_response(f'Unable to access {url}; too many redirects.', 302)
+            return abort(400, f'Unable to access <code>{url}</code><br/>Too many redirects.')
         except requests.exceptions.SSLError:
-            return make_response(f'Unable to access {url}; an SSL error occured, remote server may not support HTTPS.', 404)
+            return abort(502, f'Unable to access <code>{url}</code><br/>An SSL error occured, remote server may not support HTTPS.')
         except requests.ConnectionError:
-            return make_response(f'Unable to access {url}; resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.', 404)
+            return abort(502, f'Unable to access <code>{url}</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.')
         except requests.RequestException:
-            return make_response(f'Unable to access {url}; an unspecified error occured while connecting to resource.', 500)
+            return abort(500, f'Unable to access <code>{url}</code><br/>An unspecified error occured while connecting to resource.')
         except Exception as e:
-            return make_response(dedent(f"""
+            abort(500, dedent(f"""
             <code><pre>
             An unspecified error occured while server was processing this request.
             Parsed URL: {url}
             Error name: {e.__class__.__name__}
             </pre></code>
-            """), 500)
+            """))
 
         cookies, headers = masquerade(requests_res.cookies, res.headers)
         for cookie in cookies:
