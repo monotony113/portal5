@@ -16,9 +16,12 @@
 
 import secrets
 
+from dotenv import load_dotenv
 from flask import Flask, request, render_template
 
 from . import portal3
+
+load_dotenv()
 
 
 def index():
@@ -28,7 +31,7 @@ def index():
 def handle_not_found(remote):
     if 'portal3-remote-scheme' in request.cookies:
         return portal3.from_absolute_path()
-    return '<h1>Not found.</h1>', 404
+    return render_template('404.html'), 404
 
 
 def create_app(*, config=None) -> Flask:

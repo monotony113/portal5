@@ -134,8 +134,8 @@ def forward(remote):
         res.headers.update(headers)
 
         if not g.direct_request:
-            set_cookies(res, scheme=remote_parts.scheme, domain=remote_parts.netloc, max_age=None)
-            set_cookies(res, path=f'{g.prefix}{urljoin(url, ".")}', referrer=remote_parts.geturl(), max_age=None)
+            set_cookies(res, scheme=remote_parts.scheme, domain=remote_parts.netloc, max_age=1800)
+            set_cookies(res, path=f'{g.prefix}{urljoin(url, ".")}', referrer=remote_parts.geturl(), max_age=1800)
 
         return res
 
@@ -211,7 +211,7 @@ def from_absolute_path():
     cookies = dict(**req.cookies)
     headers = {**req.headers}
     headers.pop('Host', None)
-    res = make_response('', 404)
+    res = render_template('404.html'), 404
 
     if 'portal3-remote-scheme' in req.cookies:
         remote_scheme = cookies.get('portal3-remote-scheme')
