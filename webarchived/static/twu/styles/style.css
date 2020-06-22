@@ -2,163 +2,6 @@
     color: #dd54a2;
 }
 
-.color-darker-bg {
-    background-color: #21252c;
-}
-
-.color-100-black-bg {
-    background-color: black;
-}
-
-.color-100-white-bg {
-    background-color: white;
-}
-
-.color-black-bg {
-    background-color: #272c33;
-}
-
-.color-gray-bg {
-    background-color: #abb1bf;
-}
-
-.color-white-bg {
-    background-color: #d3d3d3;
-}
-
-.color-cyan-bg {
-    background-color: #51b5c3;
-}
-
-.color-blue-bg {
-    background-color: #5cadf1;
-}
-
-.color-magenta-bg {
-    background-color: #c774df;
-}
-
-.color-red-bg {
-    background-color: #e26a72;
-}
-
-.color-green-bg {
-    background-color: #96c475;
-}
-
-.color-yellow-bg {
-    background-color: #d29a61;
-}
-
-.color-cyan-fg {
-    color: #51b5c3;
-}
-
-.color-100-white-fg {
-    color: white;
-}
-
-.color-black-fg {
-    color: #272c33;
-}
-
-.color-white-fg {
-    color: #d3d3d3;
-}
-
-.color-blue-fg {
-    color: #5cadf1;
-}
-
-.color-magenta-fg {
-    color: #c774df;
-}
-
-.color-red-fg {
-    color: #e26a72;
-}
-
-.color-green-fg {
-    color: #96c475;
-}
-
-.color-darker-fg {
-    color: #21252c;
-}
-
-.color-yellow-fg {
-    color: #d29a61;
-}
-
-.color-black-bg-85 {
-    background-color: #272c33d8;
-}
-
-.color-gray-bg-85 {
-    background-color: #727680d8;
-}
-
-.color-white-bg-85 {
-    background-color: #aaaaaad8;
-}
-
-.color-cyan-bg-85 {
-    background-color: #3d8a94d8;
-}
-
-.color-blue-bg-85 {
-    background-color: #3c709bd8;
-}
-
-.color-magenta-bg-85 {
-    background-color: #8b529bd8;
-}
-
-.color-red-bg-85 {
-    background-color: #91454ad8;
-}
-
-.color-green-bg-85 {
-    background-color: #668550d8;
-}
-
-.color-yellow-bg-85 {
-    background-color: #805d3bd8;
-}
-
-.color-cyan-darkest-bg {
-    background-color: #153135;
-}
-
-.color-blue-darkest-bg {
-    background-color: #213846;
-}
-
-.color-magenta-darkest-bg {
-    background-color: #351a3d;
-}
-
-.color-red-darkest-bg {
-    background-color: #311718;
-}
-
-.color-green-darkest-bg {
-    background-color: #1d2b14;
-}
-
-.color-yellow-darkest-bg {
-    background-color: #352413;
-}
-
-.color-85-translucent {
-    background-color: #334b5ad8;
-}
-
-.rotate-45 {
-    transform: rotate(45deg);
-    transition: ease-out;
-}
-
 body {
     background-color: #21252c;
     color: #d3d3d3;
@@ -177,6 +20,13 @@ a {
 
 a:hover {
     text-decoration: underline;
+}
+
+strong > a,
+em > a,
+span > a,
+mark > a {
+    color: inherit;
 }
 
 header {
@@ -214,6 +64,14 @@ article h6 {
         BlinkMacSystemFont, 'Noto Sans', 'Ubuntu', 'Open Sans', sans-serif;
 }
 
+article h1 {
+    margin: 2.5em auto 1.5em;
+}
+
+article h2 {
+    margin: 1.5em auto 1em;
+}
+
 @media screen and (min-width: 768px) and (max-width: 1024px) {
     header,
     article {
@@ -236,12 +94,12 @@ h4 {
 
 h1 {
     font-size: 2em;
-    margin: 2.5em auto 1.5em;
+    margin: 0.5em auto 1.5em;
 }
 
 h2 {
     font-size: 1.5em;
-    margin: 1.5em auto 1em;
+    margin: 0em auto 1em;
 }
 
 h3 {
@@ -372,10 +230,24 @@ td img {
 }
 
 code {
-    font-weight: 700;
     font-family: 'Fira Code', 'Inconsolata', 'Consolas', 'Ubuntu Mono',
         'Courier New', monospace;
-    letter-spacing: -0.2pt;
+    letter-spacing: -0.3pt;
+    background-color: #6e7a9144;
+    color: #d3d3d3;
+    font-weight: 300;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code,
+blockquote code {
+    background-color: inherit;
+    color: inherit;
+    font-weight: inherit;
 }
 
 pre {
@@ -390,4 +262,8 @@ pre {
 
 .text-center-aligned {
     text-align: center;
+}
+
+.cjk-serif {
+    font-family: 'Noto Serif SC', 'Songti SC', 'Adobe Song Std', serif;
 }

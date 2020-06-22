@@ -1,42 +1,49 @@
+{% extends 'components/html.html' %}
+
 {% set statuscode = statuscode|default(500) %}
 {% set extra = "" %}
 
 {% if statuscode == 400 %}
 {% set text = "Bad Request" %}
+
+{% elif statuscode == 403 %}
+{% set text = "Forbidden" %}
+
 {% elif statuscode == 404 %}
 {% set text = "Not Found" %}
 {% set extra %}
-<h5><sup>*</sup>Not to be confused with <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/451" target="_blank"><mark><code>HTTP <span class="color-ulysses-magenta-fg">451</span> Unavailable For Legal Reasons</code></mark></a></h5>
+<h5>(Not to be confused with
+    <mark><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/451" target="_blank">
+            <code>HTTP <span class="color-ulysses-magenta-fg">451</span> Unavailable For Legal Reasons</code>
+        </a></mark>)</h5>
 {% endset %}
-{% elif statuscode == 500 %}
-{% set text = "Internal Server Error" %}
+
+{% elif statuscode == 451 %}
+{% set text = "Unavailable For Legal Reasons" %}
+
 {% elif statuscode == 502 %}
 {% set text = "Bad Gateway" %}
+
+{% else %}
+{% set statuscode = 500 %}
+{% set text = "Internal Server Error" %}
+
 {% endif %}
 
-<!DOCTYPE html>
-<html lang="en">
+{% if not unsafe %}
+{% set message = message|safe %}
+{% endif %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>HTTP {{ statuscode }}</title>
+{% set title = text %}
 
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="/static/twu/styles/style.css" />
-</head>
-
-<body>
-    <main>
-        <article>
-            <h1><code>HTTP <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{{ statuscode }}" target="_blank"><span class="color-ulysses-magenta-fg">{{ statuscode }}</span></a> {{ text }}</code></h1>
-            {% if message %}
-            {{ message|safe }}
-            {% endif %}
-            {{ extra }}
-        </article>
-    </main>
-</body>
-
-</html>
+{% block body %}
+<main>
+    <article>
+        <h1><code>HTTP <span class="color-ulysses-magenta-fg"><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{{ statuscode }}" target="_blank">{{ statuscode }}</a></span> {{ text }}</code></h1>
+        {% if message %}
+        {{ message }}
+        {% endif %}
+        {{ extra }}
+    </article>
+</main>
+{% endblock %}
