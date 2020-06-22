@@ -51,8 +51,10 @@ def create_app(*, config=None) -> Flask:
     app.register_blueprint(portal3.portal3)
     app.register_blueprint(_debug._debug)
 
+    app.register_blueprint(_debug._debug)
+
     app.register_error_handler(404, handle_not_found)
-    for exc in (400, 403, 451, 500, 502, 503):
+    for exc in (400, 403, 451, 500, 502):
         app.register_error_handler(exc, handle_error)
 
     app.jinja_env.trim_blocks = True

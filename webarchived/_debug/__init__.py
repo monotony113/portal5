@@ -1,1 +1,1 @@
-from ._debug import _debug
+from .blueprint import _debug

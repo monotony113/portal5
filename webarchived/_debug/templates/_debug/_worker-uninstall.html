@@ -1,0 +1,18 @@
+<html>
+
+<head>
+    <script>
+        (async () => {
+            if ('serviceWorker' in navigator) {
+                let registration = await navigator.serviceWorker.getRegistration()
+                if (registration) {
+                    await registration.unregister()
+                }
+            }
+        })()
+    </script>
+</head>
+
+<body></body>
+
+</html>
