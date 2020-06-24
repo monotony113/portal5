@@ -19,7 +19,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 from flask import Blueprint, Request, render_template, redirect, g, abort
 from flask import request
 
-from . import common
+from .. import common
 
 APPNAME = 'portal3'
 request: Request

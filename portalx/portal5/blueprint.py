@@ -17,7 +17,7 @@
 from flask import Blueprint, Request, render_template, g, abort, current_app
 from flask import request
 
-from . import common
+from .. import common
 
 APPNAME = 'portal5'
 request: Request
