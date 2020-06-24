@@ -20,6 +20,7 @@ const WORKER_VERSION = 2
 
 const PREFIX = '/portal5/'
 const PASSTHRU = {}
+PASSTHRU[PREFIX] = true
 PASSTHRU[PREFIX + 'index.js'] = true
 PASSTHRU[PREFIX + 'index.html'] = true
 PASSTHRU[PREFIX + 'style.css'] = true
@@ -32,70 +33,108 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim())
 })
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('message', (event) => {
+    let settings = JSON.parse(event.data)
+    console.log(settings)
+})
+
+self.addEventListener('fetch', handleFetchRewriteURL)
+
+function handleFetchRewriteURL(event) {
     /** @type {Request} */
     let request = event.request
-    let requestURL = new URL(request.url)
 
-    let synthesizedHeaders = new Headers()
-    request.headers.forEach((v, k) => synthesizedHeaders.append(k, v))
-    synthesizedHeaders.set('X-Portal5-Worker-Version', WORKER_VERSION.toString())
+    // URLs parsed from different sources that will be used to synthesize the final URL for network request
+    /**
+     * Location of the window that fired this `FetchEvent`, collected from `client.url`, where `client` (the window)
+     * is accessed using `FetchEvent.clientId` or `FetchEvent.replacesClientId`
+     * @type {URL}
+     */
+    let location = null
+    /**
+     * URL to the actual resource that the user is currently visiting (that is instead served via this server);
+     * equals `location` minus any server prefixes.
+     * @type {URL}
+     */
+    let represented = null
+    /**
+     * The referrer, parsed from `FetchEvent.request.referrer`; may not be available depending on the referrer policy.
+     * @type {URL}
+     */
+    let referrer = null
+    /**
+     * The requested URL that needs to be worked on, from `FetchEvent.request.url`.
+     * @type {URL}
+     */
+    let requested = new URL(request.url)
+    /**
+     * Stores the final, correct URL, synthesized from the above URLs.
+     * @type {URL}
+     */
+    let synthesized = new URL('http://example.org')
+
+    let headers = new Headers()
+    request.headers.forEach((v, k) => headers.append(k, v))
+    headers.set('X-Portal5-Worker-Version', WORKER_VERSION.toString())
 
     let requestOpts = {
         method: request.method,
-        headers: synthesizedHeaders,
+        headers: headers,
         body: request.body,
         credentials: request.credentials,
         cache: request.cache,
         redirect: request.redirect,
         integrity: request.integrity,
         referrer: '',
-        mode: 'cors',
+        mode: request.mode == 'same-origin' ? 'same-origin' : 'cors',
     }
 
     var synthesize = async () => {
-        const client = await clients.get(event.clientId)
-        if (!client) return fetch(request)
-        if (request.destination == 'document') return fetch(new Request(request.url, requestOpts))
-        var clientURL = new URL(client.url)
-        if (clientURL.pathname === PREFIX) return fetch(request)
+        let server
+        const client = await clients.get(event.clientId || event.replacesClientId)
+        if (client) {
+            location = new URL(client.url)
+            represented = new URL(location.pathname.substr(9))
+            server = location.origin
+        }
 
-        var server = clientURL.origin
+        if (request.referrer)
+            switch (request.referrerPolicy) {
+                case 'no-referrer-when-downgrade':
+                    break
+            }
 
-        var documentURL = new URL(clientURL.pathname.substr(9))
-
-        synthesizedHeaders.set('X-Portal5-Referrer', documentURL)
-
-        var synthesizedURL = new URL(`${clientURL.protocol}//${clientURL.host}`)
-        synthesizedURL.search = requestURL.search
-
-        if (server != requestURL.origin) {
-            synthesizedURL.pathname = PREFIX + requestURL.origin + requestURL.pathname
-            synthesizedURL.username = requestURL.username
-            synthesizedURL.password = requestURL.password
-            synthesizedURL.search = requestURL.search
-            synthesizedURL.hash = requestURL.hash
+        if (server != requested.origin) {
+            synthesized.pathname = PREFIX + requested.origin + requested.pathname
+            synthesized.username = requested.username
+            synthesized.password = requested.password
+            synthesized.search = requested.search
+            synthesized.hash = requested.hash
         } else {
-            if (requestURL.pathname in PASSTHRU) return fetch(request)
-            const rePrefixWithHost = new RegExp('^' + PREFIX + documentURL.protocol + '//' + documentURL.host)
-            const rePrefixWithProtocol = new RegExp('^' + PREFIX + documentURL.protocol + '/')
+            if (requested.pathname in PASSTHRU) return fetch(request)
+            const rePrefixWithHost = new RegExp('^' + PREFIX + represented.protocol + '//' + represented.host)
+            const rePrefixWithProtocol = new RegExp('^' + PREFIX + represented.protocol + '/')
 
-            let protocol = documentURL.protocol
-            let host = documentURL.host
-            let pathname = requestURL.pathname
+            let protocol = represented.protocol
+            let host = represented.host
+            let pathname = requested.pathname
 
             if (!rePrefixWithProtocol.test(pathname)) {
-                synthesizedURL.pathname = PREFIX + protocol + '//' + host + pathname
-            } else if (!rePrefixWithHost.test(requestURL.pathname)) {
-                synthesizedURL.pathname = PREFIX + protocol + '//' + host + pathname.replace(rePrefixWithProtocol, '')
+                synthesized.pathname = PREFIX + protocol + '//' + host + pathname
+            } else if (!rePrefixWithHost.test(requested.pathname)) {
+                synthesized.pathname = PREFIX + protocol + '//' + host + pathname.replace(rePrefixWithProtocol, '')
             } else {
-                synthesizedURL.pathname = pathname
+                synthesized.pathname = pathname
             }
         }
 
-        let redirect = new Request(synthesizedURL.href, requestOpts)
+        synthesized.search = requested.search
+
+        headers.set('X-Portal5-Referrer', referrer)
+
+        let redirect = new Request(synthesized.href, requestOpts)
         return fetch(redirect)
     }
 
     event.respondWith(synthesize())
-})
+}
