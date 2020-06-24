@@ -24,6 +24,9 @@
 {% elif statuscode == 502 %}
 {% set text = "Bad Gateway" %}
 
+{% elif statuscode == 503 %}
+{% set text = "Service Unavailable" %}
+
 {% else %}
 {% set statuscode = 500 %}
 {% set text = "Internal Server Error" %}

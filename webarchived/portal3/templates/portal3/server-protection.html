@@ -1,0 +1,32 @@
+<h1>
+    <strong>Limited service / <span class="cjk-serif">有限度的服务</span></strong>
+</h1>
+
+<p>
+    <strong>
+        To protect <code><strong>{{ server }}</strong></code> and this tool from being detected, flagged, rate-limited, or blacklisted
+        by upstream servers, requests to certain domains and URLs are currently limited.
+    </strong>
+</p>
+
+<p class="cjk-serif">
+    <strong>
+        为防止 <code><strong>{{ server }}</strong></code> 及本工具被上游服务器识别或屏蔽，对一些域名或地址的访问当前受到限制。
+    </strong>
+</p>
+
+<h3>
+    <strong>Currently applies to / <span class="cjk-serif">受限的域名及地址</span></strong>
+</h3>
+
+<ul>
+    {% for test in tests %}
+    <li><code><strong>{{ test + '' }}</strong></code></li>
+    {% endfor %}
+</ul>
+
+<h3>
+    <strong>Last updated / <span class="cjk-serif">最后更新</span></strong>
+</h3>
+
+<p><code><strong>2020-06-24 00:00 UTC</strong></code></p>

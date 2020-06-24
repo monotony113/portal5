@@ -35,6 +35,7 @@ def collect_data_from_request(endpoint, values: dict):
     common.metadata_from_request(g, request, endpoint, values)
 
     if 'remote' in values:
+        abort(503, render_template('portal3/server-protection.html', server=g.server, tests=('* (all)',)))
         g.direct_request = g.request_cookies.get('portal3-remote-redirect', False)
 
         g.base_scheme = g.request_cookies.get('portal3-remote-scheme')
