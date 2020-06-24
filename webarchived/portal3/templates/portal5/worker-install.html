@@ -15,6 +15,9 @@
 
 {% block scripts %}
 <script async src="/portal5/index.js"></script>
+<script>
+    const settings = JSON.parse('{{ worker_settings|tojson }}');
+</script>
 {% endblock %}
 
 {% set use_portal3 %}

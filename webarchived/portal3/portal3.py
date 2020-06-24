@@ -21,13 +21,14 @@ from flask import request
 
 from . import common
 
+APPNAME = 'portal3'
 request: Request
-portal3 = Blueprint('portal3', __name__, template_folder='templates', url_prefix='/portal3')
+portal3 = Blueprint(APPNAME, __name__, template_folder='templates', subdomain='<subdomain>')
 
 
 @portal3.route('/')
 def home():
-    return render_template('portal3/index.html', server=g.server)
+    return render_template(f'{APPNAME}/index.html', server=g.server)
 
 
 @portal3.url_value_preprocessor
@@ -35,12 +36,12 @@ def collect_data_from_request(endpoint, values: dict):
     common.metadata_from_request(g, request, endpoint, values)
 
     if 'remote' in values:
-        abort(503, render_template('portal3/server-protection.html', server=g.server, tests=('* (all)',)))
-        g.direct_request = g.request_cookies.get('portal3-remote-redirect', False)
+        abort(503, render_template(f'{APPNAME}/server-protection.html', server=g.server, tests=('* (all)',)))
+        g.direct_request = g.request_cookies.get(f'{APPNAME}-remote-redirect', False)
 
-        g.base_scheme = g.request_cookies.get('portal3-remote-scheme')
-        g.base_domain = g.request_cookies.get('portal3-remote-domain')
-        g.referred_by = g.request_cookies.get('portal3-remote-referrer')
+        g.base_scheme = g.request_cookies.get(f'{APPNAME}-remote-scheme')
+        g.base_domain = g.request_cookies.get(f'{APPNAME}-remote-domain')
+        g.referred_by = g.request_cookies.get(f'{APPNAME}-remote-referrer')
         g.referred_by = g.referred_by and urlsplit(g.referred_by)
         if g.base_scheme and g.request_referrer and not g.referred_by:
             referrer = request.referrer[len(f'{g.server}{g.prefix}'):]
@@ -50,7 +51,7 @@ def collect_data_from_request(endpoint, values: dict):
 @portal3.route('/direct/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
 def forward_direct(remote):
     g.direct_request = True
-    g.prefix = '/portal3/direct/'
+    g.prefix = f'/{APPNAME}/direct/'
     return forward(remote)
 
 
@@ -98,7 +99,7 @@ def forward(remote):
 
 def set_cookies(res, *, path='/', max_age=180, **cookies):
     for k, v in cookies.items():
-        opts = dict(key=f'portal3-remote-{k}', value=v, path=path, max_age=max_age)
+        opts = dict(key=f'{APPNAME}-remote-{k}', value=v, path=path, max_age=max_age)
         res.set_cookie(**opts)
 
 
@@ -108,10 +109,10 @@ def from_absolute_path():
     headers.pop('Host', None)
     res = render_template('httperr.html', statuscode=404), 404
 
-    if 'portal3-remote-scheme' in request.cookies:
-        remote_scheme = cookies.get('portal3-remote-scheme')
-        remote_domain = cookies.get('portal3-remote-domain')
-        path = f'/portal3/{remote_scheme}://{remote_domain}{urlsplit(request.url).path}'
+    if f'{APPNAME}-remote-scheme' in request.cookies:
+        remote_scheme = cookies.get(f'{APPNAME}-remote-scheme')
+        remote_domain = cookies.get(f'{APPNAME}-remote-domain')
+        path = f'/{APPNAME}/{remote_scheme}://{remote_domain}{urlsplit(request.url).path}'
         if request.args:
             path = f'{path}?{request.query_string.decode("utf8")}'
         res = redirect(path, 307)

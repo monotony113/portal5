@@ -19,7 +19,7 @@ import secrets
 from dotenv import load_dotenv
 from flask import Flask, request, render_template
 
-from . import portal3, _debug
+from . import _debug, portal3, config
 
 load_dotenv()
 
@@ -38,18 +38,27 @@ def handle_error(e):
     return render_template('httperr.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
 
 
-def create_app(*, config=None) -> Flask:
+def pop_subdomain(endpoint, values):
+    values.pop('subdomain', None)
+
+
+def create_app(*, override=None) -> Flask:
     app = Flask(
         __name__,
         instance_relative_config=True,
     )
+    app.config.from_object(config)
     app.secret_key = secrets.token_urlsafe(20)
 
-    app.route('/')(index)
-    app.route('/index.html')(index)
+    app.add_url_rule(
+        '/static/<path:filename>',
+        subdomain='<subdomain>',
+        endpoint='static', view_func=app.send_static_file
+    )
+    app.url_value_preprocessor(pop_subdomain)
 
     app.register_blueprint(portal3.portal3)
-    app.register_blueprint(_debug._debug)
+    app.register_blueprint(portal3.portal5)
 
     app.register_blueprint(_debug._debug)
 

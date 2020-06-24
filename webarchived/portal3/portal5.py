@@ -19,11 +19,12 @@ from flask import request
 
 from . import common
 
+APPNAME = 'portal5'
 request: Request
 portal5 = Blueprint(
-    'portal5', __name__,
+    APPNAME, __name__,
     template_folder='templates', static_folder='static',
-    url_prefix='/portal5'
+    subdomain=APPNAME
 )
 
 WORKER_VERSION = 2
@@ -85,7 +86,9 @@ def rewrite(remote):
         return response
 
     def update_worker():
-        return render_template('portal5/worker-install.html', server=g.server, remote=remote_parts.geturl())
+        return render_template(
+            'portal5/worker-install.html', server=g.server, remote=remote_parts.geturl(),
+        )
 
     worker_ver = g.request_worker_ver
     if worker_ver:
