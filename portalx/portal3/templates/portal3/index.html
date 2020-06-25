@@ -12,24 +12,24 @@
     <h2>Try it out</h2>
 
     <blockquote>
-        <pre><code><strong><mark><a href="{{ server }}/portal3/https://www.google.com" target="_blank">{{ server }}/portal3/https://www.google.com</a></mark></strong></code></pre>
+        <pre><code><strong><mark><a href="{{ server }}/https://www.google.com" target="_blank">{{ server }}/https://www.google.com</a></mark></strong></code></pre>
     </blockquote>
     <p>The above URL will load Google's frontpage in a new tab/window, even if you are in a location where Google is not accessible.</p>
-    <p>You will notice that the domain part of the page's URL stays at <strong><code>{{ domain }}</code></strong>. Google's search function will be working. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ domain }}</code></strong> when you click on any of the search results.</p>
+    <p>You will notice that the domain part of the page's URL stays at <strong><code>{{ request.host }}</code></strong>. Google's search function will be working. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ request.host }}</code></strong> when you click on any of the search results.</p>
 
     <h2>Usage</h2>
 
     <p>In your browser, visit</p>
-    <pre class="text-center-aligned"><code>{{ server }}/portal3/<em>&lt;url&gt;</em></code></pre>
+    <pre class="text-center-aligned"><code>{{ server }}<em>&lt;url&gt;</em></code></pre>
     <p>where <code><em>&lt;url&gt;</em></code> is the URL to the actual webpage you'd like to visit.</p>
-    <p>For example, if you are trying to visit <code>https://example.org</code>, visit <code>{{ server }}/portal3/https://example.org</em></code>
+    <p>For example, if you are trying to visit <code>https://example.org</code>, visit <code>{{ server }}/https://example.org</em></code>
     </pre>
     </p>
     <p>You <strong>must</strong> include the URL protocol in your request. That is, your URL must begin with <code>https:</code> or <code>http:</code>.</p>
 
     <p>It also supports other HTTP methods, such as <code>POST</code>:</p>
     <blockquote>
-        <pre><code><strong>$</strong> curl -X POST {{ server }}/portal3/\<br>https://example.org/login.php</em></code></pre>
+        <pre><code><strong>$</strong> curl -X POST {{ server }}/\<br>https://example.org/login.php</em></code></pre>
     </blockquote>
 
     <h2>Design</h2>

@@ -15,31 +15,57 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import secrets
+from importlib import import_module
+from pkgutil import iter_modules
 
 from dotenv import load_dotenv
-from flask import Flask, request, render_template
+from flask import Flask, g, request, render_template
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import _debug, portal3, config
+from . import config
 
 load_dotenv()
 
 
-def index():
-    return render_template('index.html')
+def load_blueprints(app: Flask):
+    for importer, name, ispkg in iter_modules(__path__):
+        if ispkg:
+            module_ = import_module(f'.{name}', __name__)
+            bp = getattr(module_, 'bp', None)
+            if bp:
+                app.register_blueprint(bp)
 
 
-def handle_not_found(remote):
-    if 'portal3-remote-scheme' in request.cookies:
-        return portal3.from_absolute_path()
-    return handle_error(remote)
+def setup_error_handling(app: Flask):
+    def handle_error(e):
+        return render_template('httperr.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
+
+    for exc in (400, 403, 404, 451, 500, 502, 503):
+        app.register_error_handler(exc, handle_error)
 
 
-def handle_error(e):
-    return render_template('httperr.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
+def setup_urls(app: Flask):
+    app.add_url_rule(
+        '/<path:filename>', subdomain='static',
+        endpoint='static', view_func=app.send_static_file
+    )
+
+    @app.url_value_preprocessor
+    def derive_server_info(endpoint, values):
+        g.sld = '.'.join(request.host.split('.')[-2:])
 
 
-def pop_subdomain(endpoint, values):
-    values.pop('subdomain', None)
+def setup_debug(app: Flask):
+    if not app.debug:
+        return
+
+    app.wsgi_app = ProxyFix(app.wsgi_app)
+
+
+def setup_jinja(app: Flask):
+    app.jinja_env.trim_blocks = True
+    app.jinja_env.lstrip_blocks = True
+    app.jinja_env.strip_trailing_newlines = False
 
 
 def create_app(*, override=None) -> Flask:
@@ -47,28 +73,16 @@ def create_app(*, override=None) -> Flask:
         __name__,
         instance_relative_config=True,
     )
-    app.config.from_object(config)
     app.secret_key = secrets.token_urlsafe(20)
+    app.config.from_object(config)
+    app.config.from_object(override or dict())
+    app.config.from_pyfile('config.py', silent=True)
 
-    app.add_url_rule(
-        '/static/<path:filename>',
-        subdomain='<subdomain>',
-        endpoint='static', view_func=app.send_static_file
-    )
-    app.url_value_preprocessor(pop_subdomain)
-
-    app.register_blueprint(portal3.portal3)
-    app.register_blueprint(portal3.portal5)
-
-    app.register_blueprint(_debug._debug)
-
-    app.register_error_handler(404, handle_not_found)
-    for exc in (400, 403, 451, 500, 502):
-        app.register_error_handler(exc, handle_error)
-
-    app.jinja_env.trim_blocks = True
-    app.jinja_env.lstrip_blocks = True
-    app.jinja_env.strip_trailing_newlines = False
+    load_blueprints(app)
+    setup_urls(app)
+    setup_error_handling(app)
+    setup_jinja(app)
+    setup_debug(app)
 
     return app
 

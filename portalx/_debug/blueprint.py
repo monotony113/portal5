@@ -14,15 +14,34 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from flask import Blueprint, render_template
+from flask import Blueprint, Response, request, stream_with_context, render_template
 
 _debug = Blueprint(
     '_debug', __name__,
     template_folder='templates', static_folder='static',
-    url_prefix='/_debug'
+    subdomain='debug'
 )
 
 
 @_debug.route('/uninstall-worker')
 def uninstall_worker():
     return render_template('_debug/_worker-uninstall.html')
+
+
+@_debug.route('/info')
+def info():
+    def gen_info():
+        yield '<pre><code>'
+        yield request.url + '\n'
+        yield request.host + '\n'
+        yield request.scheme + '\n'
+        yield '\n'
+        for k, v in request.headers.items():
+            yield f'{k}: {v}\n'
+        yield '\n'
+        for k, v in request.cookies.items():
+            yield f'{k}: {v}\n'
+        yield '\n'
+        yield '</code></pre>'
+
+    return Response(stream_with_context(gen_info()), mimetype='text/html')

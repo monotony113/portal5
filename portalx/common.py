@@ -31,14 +31,10 @@ def metadata_from_request(g, request, endpoint, values):
     g.request_data = dict(**request.form) or request.data
     g.request_fetch_mode = g.request_headers.get('Sec-Fetch-Mode')
 
-    referrer = g.request_headers.get('Referer')
-    g.request_referrer = urlsplit(referrer) if referrer else None
+    g.request_referrer = urlsplit(request.referrer) if request.referrer else None
 
     if 'remote' in values:
         g.remote_url_parts = normalize_url(unquote(values['remote']))
-
-    g.server = f'{g.request_url_parts.scheme}://{g.request_url_parts.netloc}'
-    g.prefix = f'/{request.blueprint}/'
 
     g.request_headers.pop('Referer', None)
     g.request_headers.pop('Host', None)
@@ -61,12 +57,12 @@ def guard_incoming_url(g, remote: SplitResult, flask_request: Request):
             remote = f'https:{remote.geturl()}'
             if query:
                 remote = f'{remote}?{query}'
-            return Portal3MissingProtocol(g.server, g.prefix, remote)
+            return PortalXMissingProtocol(remote)
         else:
-            return Portal3BadRequest(f'Unsupported URL scheme "{remote.scheme}"')
+            return PortalXBadRequest(f'Unsupported URL scheme "{remote.scheme}"')
 
     if not remote.netloc:
-        return Portal3BadRequest(f'URL <code>{remote.geturl()}</code> missing website domain name or location.')
+        return PortalXBadRequest(f'URL <code>{remote.geturl()}</code> missing website domain name or location.')
 
     return None
 
@@ -77,13 +73,15 @@ def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Respo
 
         def pipe(response: requests.Response):
             while True:
-                chunk = response.raw.read(65536)
+                chunk = response.raw.read(1024)
                 if not chunk:
                     break
                 yield chunk
 
         headers = dict(**remote_response.headers)
         headers.pop('Set-Cookie', None)
+        headers.pop('Transfer-Encoding', None)
+
         flask_response = Response(
             stream_with_context(pipe(remote_response)),
             status=remote_response.status_code,
@@ -109,7 +107,7 @@ def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Respo
         """))
 
 
-def masquerade_urls(g, remote: requests.Response, response: Response) -> Tuple[list, dict]:
+def masquerade_urls(g, request: Request, remote: requests.Response, response: Response) -> Tuple[list, dict]:
     request_url: SplitResult = g.request_url_parts
     remote_url: SplitResult = g.remote_url_parts
     cookie_jar = remote.cookies
@@ -126,12 +124,12 @@ def masquerade_urls(g, remote: requests.Response, response: Response) -> Tuple[l
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
         cookie_domain = request_url.netloc if cookie.domain_specified and 'localhost' not in request_url.netloc else None
-        cookie_path = f'{g.prefix}{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
+        cookie_path = f'{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
         cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
 
     if 'Location' in headers:
-        headers['Location'] = f'{g.server}{g.prefix}{urljoin(remote_url.geturl(), headers["Location"])}'
+        headers['Location'] = f'{request.scheme}://{request.host}/{urljoin(remote_url.geturl(), headers["Location"])}'
 
     for cookie in cookies:
         response.set_cookie(**cookie)
@@ -140,11 +138,11 @@ def masquerade_urls(g, remote: requests.Response, response: Response) -> Tuple[l
     return cookies, headers
 
 
-class Portal3Exception(Exception):
+class PortalXException(Exception):
     pass
 
 
-class Portal3HTTPException(HTTPException):
+class PortalXHTTPException(HTTPException):
     def __init__(self, description=None, response=None, status=500, unsafe=False, **kwargs):
         super().__init__(description=description, response=response, **kwargs)
         self.code = status
@@ -154,18 +152,16 @@ class Portal3HTTPException(HTTPException):
         return Response(render_template('httperr.html', statuscode=self.code, message=self.description or '', unsafe=self.unsafe), self.code)
 
 
-class Portal3BadRequest(Portal3HTTPException):
+class PortalXBadRequest(PortalXHTTPException):
     def __init__(self, description, response=None, **kwargs):
         super().__init__(description=description, response=response, **kwargs)
         self.code = 400
 
 
-class Portal3MissingProtocol(Portal3BadRequest):
-    def __init__(self, server, prefix, remote, **kwargs):
+class PortalXMissingProtocol(PortalXBadRequest):
+    def __init__(self, remote, **kwargs):
         super().__init__(None, **kwargs)
-        self.server = server
-        self.prefix = prefix
         self.remote = remote
 
     def get_response(self, environ=None):
-        return Response(render_template('portal3/missing-protocol.html', server=self.server, prefix=self.prefix, remote=self.remote), self.code)
+        return Response(render_template('portal3/missing-protocol.html', remote=self.remote), self.code)
