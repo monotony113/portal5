@@ -19,7 +19,7 @@ import secrets
 from dotenv import load_dotenv
 from flask import Flask, request, render_template
 
-from . import portal3
+from . import portal3, _debug
 
 load_dotenv()
 
@@ -49,6 +49,7 @@ def create_app(*, config=None) -> Flask:
     app.route('/index.html')(index)
 
     app.register_blueprint(portal3.portal3)
+    app.register_blueprint(_debug._debug)
 
     app.register_error_handler(404, handle_not_found)
     for exc in (400, 403, 451, 500, 502, 503):
