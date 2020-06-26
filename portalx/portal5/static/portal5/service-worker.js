@@ -15,15 +15,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /* eslint-env serviceworker */
+/* globals localforage */
 
-const WORKER_VERSION = 2
+importScripts('localforage.min.js')
 
-const PREFIX = '/portal5/'
-const PASSTHRU = {}
-PASSTHRU[PREFIX] = true
-PASSTHRU[PREFIX + 'index.js'] = true
-PASSTHRU[PREFIX + 'index.html'] = true
-PASSTHRU[PREFIX + 'style.css'] = true
+self.settings = null
 
 self.addEventListener('install', (event) => {
     event.waitUntil(skipWaiting())
@@ -34,106 +30,148 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-    let settings = JSON.parse(event.data)
-    console.log(settings)
+    if (event.data.msg == 'settings') self.settings = event.data.settings
+    localforage.setItem('portal5:worker:settings', event.data.settings)
 })
 
 self.addEventListener('fetch', handleFetchRewriteURL)
 
 function handleFetchRewriteURL(event) {
-    /** @type {Request} */
-    let request = event.request
-
-    // URLs parsed from different sources that will be used to synthesize the final URL for network request
-    /**
-     * Location of the window that fired this `FetchEvent`, collected from `client.url`, where `client` (the window)
-     * is accessed using `FetchEvent.clientId` or `FetchEvent.replacesClientId`
-     * @type {URL}
-     */
-    let location = null
-    /**
-     * URL to the actual resource that the user is currently visiting (that is instead served via this server);
-     * equals `location` minus any server prefixes.
-     * @type {URL}
-     */
-    let represented = null
-    /**
-     * The referrer, parsed from `FetchEvent.request.referrer`; may not be available depending on the referrer policy.
-     * @type {URL}
-     */
-    let referrer = null
-    /**
-     * The requested URL that needs to be worked on, from `FetchEvent.request.url`.
-     * @type {URL}
-     */
-    let requested = new URL(request.url)
-    /**
-     * Stores the final, correct URL, synthesized from the above URLs.
-     * @type {URL}
-     */
-    let synthesized = new URL('http://example.org')
-
-    let headers = new Headers()
-    request.headers.forEach((v, k) => headers.append(k, v))
-    headers.set('X-Portal5-Worker-Version', WORKER_VERSION.toString())
-
-    let requestOpts = {
-        method: request.method,
-        headers: headers,
-        body: request.body,
-        credentials: request.credentials,
-        cache: request.cache,
-        redirect: request.redirect,
-        integrity: request.integrity,
-        referrer: '',
-        mode: request.mode == 'same-origin' ? 'same-origin' : 'cors',
-    }
-
     var synthesize = async () => {
-        let server
-        const client = await clients.get(event.clientId || event.replacesClientId)
-        if (client) {
-            location = new URL(client.url)
-            represented = new URL(location.pathname.substr(9))
-            server = location.origin
+        /** @type {Request} */
+        let request = event.request
+
+        // URLs parsed from different sources that will be used to synthesize the final URL for network request
+        /**
+         * Location of the window that fired this `FetchEvent`, collected from `client.url`, where `client` (the window)
+         * is accessed using `FetchEvent.clientId` or `FetchEvent.replacesClientId`
+         * @type {URL}
+         */
+        let location = null
+        /**
+         * URL to the actual resource that the user is currently visiting (that is instead served via this server);
+         * equals `location` minus any server prefixes.
+         * @type {URL}
+         */
+        let represented = null
+        /**
+         * The referrer, parsed from `FetchEvent.request.referrer`; may not be available depending on the referrer policy.
+         * @type {URL}
+         */
+        let referrer = null
+        /**
+         * The requested URL that needs to be worked on, from `FetchEvent.request.url`.
+         * @type {URL}
+         */
+        let requested = new URL(request.url)
+        /**
+         * Stores the final, correct URL, synthesized from the above URLs.
+         * @type {URL}
+         */
+        let synthesized = new URL('http://example.org')
+
+        var settings = self.settings
+        if (!self.settings) {
+            settings = await localforage.getItem('portal5:worker:settings')
+            // eslint-disable-next-line require-atomic-updates
+            self.settings = settings
         }
 
-        if (request.referrer)
-            switch (request.referrerPolicy) {
-                case 'no-referrer-when-downgrade':
-                    break
+        let server = settings.protocol + '://' + settings.host
+
+        let headers = new Headers()
+        request.headers.forEach((v, k) => headers.append(k, v))
+        headers.set('X-Portal5-Worker-Version', settings.version.toString())
+
+        let requestOpts = {
+            method: request.method,
+            headers: headers,
+            credentials: request.credentials,
+            cache: request.cache,
+            redirect: request.redirect,
+            integrity: request.integrity,
+            referrer: '',
+            mode: request.mode == 'same-origin' ? 'same-origin' : 'cors',
+        }
+
+        var client = await clients.get(event.clientId || event.replacesClientId)
+        if (!client && 'clients' in self && 'matchAll' in clients) {
+            let windows = await clients.matchAll({ type: 'window' })
+            windows = windows.filter((w) => w.url == request.referrer)
+            if (windows) client = windows[0]
+        }
+
+        if (client) {
+            location = new URL(client.url)
+            try {
+                represented = new URL(location.pathname.substr(1))
+            } catch (e) {
+                console.warn('Cannot parse page location: Location may have been modified')
+                let stored = await localforage.getItem('portal5:client:' + client.id)
+                if (stored) {
+                    represented = new URL(stored.represented)
+                    represented.pathname = location.pathname
+                }
             }
+            if (represented) {
+                represented.search = location.search
+                represented.hash = location.hash
+            }
+        }
+
+        if (represented) localforage.setItem('portal5:client:' + client.id, { represented: represented.href })
+
+        if (request.referrer) {
+            let referrerURL = new URL(request.referrer)
+            try {
+                referrer = new URL(referrerURL.pathname.substr(1))
+                referrer.search = referrerURL.search
+                referrer.hash = referrerURL.hash
+            } catch (e) {
+                if (represented) {
+                    referrer = referrerURL
+                    referrer.protocol = represented.protocol
+                    referrer.host = represented.host
+                }
+            }
+        }
+
+        if (!represented) represented = referrer
+        if (!referrer) referrer = represented
 
         if (server != requested.origin) {
-            synthesized.pathname = PREFIX + requested.origin + requested.pathname
-            synthesized.username = requested.username
-            synthesized.password = requested.password
-            synthesized.search = requested.search
-            synthesized.hash = requested.hash
+            synthesized = new URL(requested)
         } else {
-            if (requested.pathname in PASSTHRU) return fetch(request)
-            const rePrefixWithHost = new RegExp('^' + PREFIX + represented.protocol + '//' + represented.host)
-            const rePrefixWithProtocol = new RegExp('^' + PREFIX + represented.protocol + '/')
-
-            let protocol = represented.protocol
-            let host = represented.host
-            let pathname = requested.pathname
-
-            if (!rePrefixWithProtocol.test(pathname)) {
-                synthesized.pathname = PREFIX + protocol + '//' + host + pathname
-            } else if (!rePrefixWithHost.test(requested.pathname)) {
-                synthesized.pathname = PREFIX + protocol + '//' + host + pathname.replace(rePrefixWithProtocol, '')
-            } else {
-                synthesized.pathname = pathname
+            try {
+                synthesized = new URL(requested.pathname.substr(1))
+            } catch (e) {
+                if (referrer) {
+                    synthesized = new URL(referrer)
+                } else {
+                    synthesized = new URL(server)
+                }
+                synthesized.pathname = requested.pathname
             }
         }
 
         synthesized.search = requested.search
+        synthesized.hash = requested.hash
 
-        headers.set('X-Portal5-Referrer', referrer)
+        if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
+            return fetch(request.clone())
 
-        let redirect = new Request(synthesized.href, requestOpts)
-        return fetch(redirect)
+        let body = await request.blob()
+        if (body.size > 0) requestOpts.body = body
+
+        if (referrer) headers.set('X-Portal5-Referrer', referrer.href)
+
+        let final = new URL(settings.protocol + '://' + settings.host + '/' + synthesized.href)
+        if (final.href != requested.href) {
+            let redirect = new Response('', { status: 307, headers: { Location: final.href } })
+            return redirect
+        } else {
+            return fetch(new Request(final.href, requestOpts))
+        }
     }
 
     event.respondWith(synthesize())

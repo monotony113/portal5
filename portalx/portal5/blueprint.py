@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from flask import Blueprint, Request, render_template, g, abort, current_app
+from urllib.parse import SplitResult, urljoin
+
+from flask import Blueprint, Request, render_template, g, abort, redirect, current_app
 from flask import request
 
 from .. import common
@@ -31,25 +33,26 @@ WORKER_VERSION = 2
 
 
 @portal5.route('/')
+@portal5.route('/index.html')
 def home():
-    return render_template('portal5/index.html', protocol=g.request_url_parts.scheme, domain=g.request_url_parts.netloc)
+    return render_template(f'{APPNAME}/index.html')
 
 
-@portal5.route('/index.js')
+@portal5.route('/install.js')
 def index_js():
-    return portal5.send_static_file('portal5/index.js')
+    return portal5.send_static_file(f'{APPNAME}/install.js')
 
 
-@portal5.route('/style.css')
-def style_css():
-    return current_app.send_static_file('twu/styles/style.css')
+@portal5.route('/localforage.min.js')
+def localforage():
+    return portal5.send_static_file(f'{APPNAME}/localforage.min.js')
 
 
 @portal5.route('/service-worker.js')
 def service_worker():
     if g.request_headers.get('Service-Worker') != 'script':
         return abort(403)
-    worker = portal5.send_static_file('portal5/service-worker.js')
+    worker = portal5.send_static_file(f'{APPNAME}/service-worker.js')
     worker.headers['Service-Worker-Allowed'] = '/'
     return worker
 
@@ -69,25 +72,57 @@ def preprocess(endpoint, values):
         g.request_headers['Referer'] = referrer
 
 
+# @portal5.route('/307/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+# def repeat_same_url(remote):
+#     g.repeat_same_url = True
+#     return rewrite(remote)
+
+
 @portal5.route('/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def rewrite(remote):
     remote_parts = g.remote_url_parts
+    if not remote_parts.path:
+        remote_parts = SplitResult(*[*remote_parts[:2], '/', *remote_parts[3:]])
+        g.remote_url_parts = remote_parts
+
     guard = common.guard_incoming_url(g, remote_parts, request)
     if guard:
         abort(guard)
 
     url = remote_parts.geturl()
+    if url != remote:
+        if request.query_string:
+            url = urljoin(url, f'?{request.query_string.decode("utf8")}')
+        return redirect(f'{request.scheme}://{request.host}/{url}', 307)
+
     request_kwargs = dict(headers=g.request_headers, params=request.args, data=g.request_data, cookies=g.request_cookies)
 
     def direct_response():
         remote, response = common.pipe_request(url, method=request.method, **request_kwargs)
-        common.masquerade_urls(g, remote, response)
-
+        common.masquerade_urls(g, request, remote, response)
         return response
 
     def update_worker():
+        service_domains = {
+            f'{rule.subdomain}.{g.sld}'
+            for rule in current_app.url_map.iter_rules()
+            if rule.subdomain
+        }
+        passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
+        passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
+
         return render_template(
-            'portal5/worker-install.html', server=g.server, remote=remote_parts.geturl(),
+            f'{APPNAME}/worker-install.html',
+            remote=remote_parts.geturl(),
+            worker_settings=dict(
+                version=WORKER_VERSION,
+                protocol=request.scheme,
+                host=request.host,
+                passthru=dict(
+                    domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
+                    urls={k: True for k in passthru_urls}
+                )
+            )
         )
 
     worker_ver = g.request_worker_ver
@@ -99,7 +134,6 @@ def rewrite(remote):
 
     else:
         head, _ = common.pipe_request(url, method='HEAD', **request_kwargs)
-        print(url, head.headers.get('Content-Type', ''))
         if 'text/html' in head.headers.get('Content-Type', ''):
             return update_worker()
         else:

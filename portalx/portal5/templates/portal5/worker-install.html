@@ -3,8 +3,7 @@
 {% set title = 'portal5 init' %}
 
 {% block styles %}
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" type="text/css" href="/portal5/style.css" />
+{{ super() }}
 <style>
     #worker-failed,
     #worker-unavailable {
@@ -14,7 +13,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script async src="/portal5/index.js"></script>
+<script async src="/install.js"></script>
 <script>
     const settings = JSON.parse('{{ worker_settings|tojson }}');
 </script>
@@ -24,7 +23,7 @@
 <li>
     Use <code><em>portal3</em></code>, a previous version of this tool that relies on cookies for redirection.
     <br>
-    → <code><strong><a href="/portal3/{{ remote }}">/portal3/{{ remote }}</a></strong></code>
+    → <code><strong><a href="//portal3.{{ g.sld }}/{{ remote }}">{{ request.scheme }}://portal3.{{ g.sld }}/{{ remote }}</a></strong></code>
 </li>
 {% endset %}
 
@@ -60,7 +59,7 @@
             </p>
             <p>You may:</p>
             <ul>
-                <li>Switch to a another browser. (URL to this page: <code><strong><a href="{{ server }}/portal5/{{ remote }}">{{ server }}/portal5/{{ remote }}</a></strong></code>)</li>
+                <li>Switch to a another browser. (URL to this page: <code><strong><a href="{{ request.url }}">{{ request.url }}</a></strong></code>)</li>
                 {{ use_portal3 }}
             </ul>
         </div>

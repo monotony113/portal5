@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/* global settings */
+
 var output = null
 var domDeferred = []
 
@@ -29,6 +31,8 @@ async function initServiceWorker() {
     const waitAndReload = async () => {
         log('await navigator.serviceWorker.ready')
         let registration = await navigator.serviceWorker.ready
+        log('serviceWorker.settings')
+        registration.active.postMessage({msg: 'settings', settings: settings})
         log('window.location.reload')
         window.location.reload()
     }
@@ -36,7 +40,7 @@ async function initServiceWorker() {
     if (!navigator.serviceWorker.controller || !registration) {
         try {
             log('await navigator.serviceWorker.register')
-            await navigator.serviceWorker.register('/portal5/service-worker.js', { scope: '/' })
+            await navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
             await waitAndReload()
         } catch (e) {
             log(e, console.error)
