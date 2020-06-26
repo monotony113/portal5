@@ -27,8 +27,12 @@ portal3 = Blueprint(APPNAME, __name__, template_folder='templates', subdomain=AP
 
 
 @portal3.route('/')
+@portal3.route('/index.html')
 def home():
     return render_template(f'{APPNAME}/index.html')
+
+
+(lambda: home())
 
 
 @portal3.url_value_preprocessor
@@ -107,21 +111,3 @@ def set_cookies(res, *, path='/', max_age=180, **cookies):
     for k, v in cookies.items():
         opts = dict(key=f'{APPNAME}-remote-{k}', value=v, path=path, max_age=max_age)
         res.set_cookie(**opts)
-
-
-def from_absolute_path():
-    cookies = dict(**request.cookies)
-    headers = {**request.headers}
-    headers.pop('Host', None)
-    res = render_template('httperr.html', statuscode=404), 404
-
-    if f'{APPNAME}-remote-scheme' in request.cookies:
-        remote_scheme = cookies.get(f'{APPNAME}-remote-scheme')
-        remote_domain = cookies.get(f'{APPNAME}-remote-domain')
-        path = f'/{remote_scheme}://{remote_domain}{urlsplit(request.url).path}'
-        if request.args:
-            path = f'{path}?{request.query_string.decode("utf8")}'
-        res = redirect(path, 307)
-        set_cookies(res, path=path, redirect='true', max_age=30)
-
-    return res

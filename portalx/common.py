@@ -21,12 +21,13 @@ from urllib.parse import urljoin, urlsplit, unquote, SplitResult
 
 import requests
 from flask import Request, Response, stream_with_context, render_template, abort
+from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 
 
-def metadata_from_request(g, request, endpoint, values):
+def metadata_from_request(g, request: Request, endpoint, values):
     g.request_url_parts = urlsplit(request.url)
-    g.request_headers = dict(**request.headers)
+    g.request_headers = Headers(request.headers)
     g.request_cookies = dict(**request.cookies)
     g.request_data = dict(**request.form) or request.data
     g.request_fetch_mode = g.request_headers.get('Sec-Fetch-Mode')
@@ -78,14 +79,9 @@ def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Respo
                     break
                 yield chunk
 
-        headers = dict(**remote_response.headers)
-        headers.pop('Set-Cookie', None)
-        headers.pop('Transfer-Encoding', None)
-
         flask_response = Response(
             stream_with_context(pipe(remote_response)),
             status=remote_response.status_code,
-            headers=headers,
         )
         return remote_response, flask_response
 
@@ -111,7 +107,11 @@ def masquerade_urls(g, request: Request, remote: requests.Response, response: Re
     request_url: SplitResult = g.request_url_parts
     remote_url: SplitResult = g.remote_url_parts
     cookie_jar = remote.cookies
-    headers = dict(**response.headers)
+    headers = Headers(remote.headers.items())
+
+    headers.pop('Set-Cookie', None)
+    headers.pop('Transfer-Encoding', None)
+    response.headers = headers
 
     cookies = list()
     get_cookie_main = attrgetter('name', 'value', 'expires')
@@ -123,7 +123,7 @@ def masquerade_urls(g, request: Request, remote: requests.Response, response: Re
         cookie_main = get_cookie_main(cookie)
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
-        cookie_domain = request_url.netloc if cookie.domain_specified and 'localhost' not in request_url.netloc else None
+        cookie_domain = request_url.netloc if cookie.domain_specified and request_url.netloc not in ('localhost', '127.0.0.1') else None
         cookie_path = f'{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
         cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
