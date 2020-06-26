@@ -19,10 +19,18 @@
 
 importScripts('localforage.min.js')
 
+const K_SETTINGS = 'portal5:worker:settings'
+
 self.settings = null
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(skipWaiting())
+    var init = async () => {
+        let cache = await caches.open('default')
+        await cache.delete('/service-worker-reinstall')
+        await cache.add('/service-worker-reinstall')
+        return skipWaiting()
+    }
+    event.waitUntil(init())
 })
 
 self.addEventListener('activate', (event) => {
@@ -30,8 +38,10 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-    if (event.data.msg == 'settings') self.settings = event.data.settings
-    localforage.setItem('portal5:worker:settings', event.data.settings)
+    if (event.data.msg == K_SETTINGS) {
+        self.settings = event.data.settings
+        localforage.setItem('portal5:worker:settings', event.data.settings)
+    }
 })
 
 self.addEventListener('fetch', handleFetchRewriteURL)
@@ -76,6 +86,7 @@ function handleFetchRewriteURL(event) {
             // eslint-disable-next-line require-atomic-updates
             self.settings = settings
         }
+        if (!self.settings) return await caches.match('/service-worker-reinstall')
 
         let server = settings.protocol + '://' + settings.host
 
@@ -91,7 +102,8 @@ function handleFetchRewriteURL(event) {
             redirect: request.redirect,
             integrity: request.integrity,
             referrer: '',
-            mode: request.mode == 'same-origin' ? 'same-origin' : 'cors',
+            referrerPolicy: request.referrerPolicy,
+            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
         }
 
         var client = await clients.get(event.clientId || event.replacesClientId)
@@ -164,6 +176,8 @@ function handleFetchRewriteURL(event) {
         if (body.size > 0) requestOpts.body = body
 
         if (referrer) headers.set('X-Portal5-Referrer', referrer.href)
+        if (request.mode == 'cors' && request.method != 'GET' && request.method != 'HEAD')
+            headers.set('X-Portal5-Origin', referrer.origin)
 
         let final = new URL(settings.protocol + '://' + settings.host + '/' + synthesized.href)
         if (final.href != requested.href) {

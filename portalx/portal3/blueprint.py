@@ -87,13 +87,8 @@ def forward(remote):
     if g.remote_url_parts == remote_parts:
 
         url = remote_parts.geturl()
-        remote, response = common.pipe_request(
-            url,
-            method=request.method,
-            headers=g.request_headers,
-            params=request.args, data=g.request_data, cookies=g.request_cookies
-        )
-        common.masquerade_urls(g, request, remote, response)
+        remote, response = common.pipe_request(url, method=request.method, **g.requests_kwargs)
+        common.masquerade_response(request, remote, response)
 
         if not g.direct_request:
             set_cookies(response, scheme=remote_parts.scheme, domain=remote_parts.netloc, max_age=1800)

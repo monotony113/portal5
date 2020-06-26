@@ -19,6 +19,8 @@
 var output = null
 var domDeferred = []
 
+const K_SETTINGS = 'portal5:worker:settings'
+
 function log(msg, fd) {
     if (!fd) fd = console.log
     fd(msg)
@@ -32,7 +34,7 @@ async function initServiceWorker() {
         log('await navigator.serviceWorker.ready')
         let registration = await navigator.serviceWorker.ready
         log('serviceWorker.settings')
-        registration.active.postMessage({msg: 'settings', settings: settings})
+        registration.active.postMessage({msg: K_SETTINGS, settings: settings})
         log('window.location.reload')
         window.location.reload()
     }

@@ -57,6 +57,11 @@ def service_worker():
     return worker
 
 
+@portal5.route('/service-worker-reinstall')
+def service_worker_reinstall():
+    return render_template(f'{APPNAME}/worker-reinstall.html')
+
+
 @portal5.url_value_preprocessor
 def preprocess(endpoint, values):
     common.metadata_from_request(g, request, endpoint, values)
@@ -71,11 +76,11 @@ def preprocess(endpoint, values):
     if referrer:
         g.request_headers['Referer'] = referrer
 
-
-# @portal5.route('/307/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-# def repeat_same_url(remote):
-#     g.repeat_same_url = True
-#     return rewrite(remote)
+    origin = g.request_headers.pop('X-Portal5-Origin', None)
+    if origin:
+        g.request_headers['Origin'] = origin
+    else:
+        g.request_headers.pop('Origin', None)
 
 
 @portal5.route('/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
@@ -95,11 +100,10 @@ def rewrite(remote):
             url = urljoin(url, f'?{request.query_string.decode("utf8")}')
         return redirect(f'{request.scheme}://{request.host}/{url}', 307)
 
-    request_kwargs = dict(headers=g.request_headers, params=request.args, data=g.request_data, cookies=g.request_cookies)
-
     def direct_response():
-        remote, response = common.pipe_request(url, method=request.method, **request_kwargs)
-        common.masquerade_urls(g, request, remote, response)
+        remote, response = common.pipe_request(url, method=request.method, **g.requests_kwargs)
+        common.masquerade_response(request, remote, response)
+        common.masquerade_cors(request, remote, response)
         return response
 
     def update_worker():
@@ -133,7 +137,7 @@ def rewrite(remote):
             return update_worker()
 
     else:
-        head, _ = common.pipe_request(url, method='HEAD', **request_kwargs)
+        head, _ = common.pipe_request(url, method='HEAD', **g.requests_kwargs)
         if 'text/html' in head.headers.get('Content-Type', ''):
             return update_worker()
         else:

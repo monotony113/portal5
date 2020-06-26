@@ -29,7 +29,6 @@ def metadata_from_request(g, request: Request, endpoint, values):
     g.request_url_parts = urlsplit(request.url)
     g.request_headers = Headers(request.headers)
     g.request_cookies = dict(**request.cookies)
-    g.request_data = dict(**request.form) or request.data
     g.request_fetch_mode = g.request_headers.get('Sec-Fetch-Mode')
 
     g.request_referrer = urlsplit(request.referrer) if request.referrer else None
@@ -39,6 +38,10 @@ def metadata_from_request(g, request: Request, endpoint, values):
 
     g.request_headers.pop('Referer', None)
     g.request_headers.pop('Host', None)
+
+    g.requests_kwargs = dict(headers=g.request_headers, params=request.args, cookies=g.request_cookies)
+    if request.content_length:
+        g.requests_kwargs['data'] = request.stream
 
 
 def normalize_url(url) -> SplitResult:
@@ -68,9 +71,15 @@ def guard_incoming_url(g, remote: SplitResult, flask_request: Request):
     return None
 
 
-def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Response, Response]:
+def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Response, Response]:
     try:
-        remote_response = requests.request(method=method, url=url, allow_redirects=False, stream=True, **request_kwargs)
+        # Annoying
+        # https://github.com/psf/requests/issues/1648
+        # https://github.com/psf/requests/pull/3897
+        outbound = requests.Request(method=method, url=url, **requests_kwargs).prepare()
+        if 'Content-Length' in outbound.headers:
+            outbound.headers.pop('Transfer-Encoding', None)
+        remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
         def pipe(response: requests.Response):
             while True:
@@ -103,9 +112,8 @@ def pipe_request(url, *, method='GET', **request_kwargs) -> Tuple[requests.Respo
         """))
 
 
-def masquerade_urls(g, request: Request, remote: requests.Response, response: Response) -> Tuple[list, dict]:
-    request_url: SplitResult = g.request_url_parts
-    remote_url: SplitResult = g.remote_url_parts
+def masquerade_response(request: Request, remote: requests.Response, response: Response) -> Tuple[list, dict]:
+    remote_url: SplitResult = urlsplit(remote.url)
     cookie_jar = remote.cookies
     headers = Headers(remote.headers.items())
 
@@ -123,7 +131,7 @@ def masquerade_urls(g, request: Request, remote: requests.Response, response: Re
         cookie_main = get_cookie_main(cookie)
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
-        cookie_domain = request_url.netloc if cookie.domain_specified and request_url.netloc not in ('localhost', '127.0.0.1') else None
+        cookie_domain = request.host if cookie.domain_specified and request.host not in ('localhost', '127.0.0.1') else None
         cookie_path = f'{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
         cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
@@ -136,6 +144,20 @@ def masquerade_urls(g, request: Request, remote: requests.Response, response: Re
     response.headers.update(headers)
 
     return cookies, headers
+
+
+def masquerade_cors(request: Request, remote: requests.Response, response: Response) -> None:
+    allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
+    if not allow_origin or allow_origin == '*':
+        return
+
+    origin = remote.request.headers.get('Origin', None)
+
+    if allow_origin != origin:
+        response.headers.pop('Access-Control-Allow-Origin', None)
+        return
+
+    response.headers['Access-Control-Allow-Origin'] = f'{request.scheme}://{request.host}'
 
 
 class PortalXException(Exception):

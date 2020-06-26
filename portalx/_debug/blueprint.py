@@ -28,7 +28,7 @@ def uninstall_worker():
     return render_template('_debug/_worker-uninstall.html')
 
 
-@_debug.route('/info')
+@_debug.route('/info', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def info():
     def gen_info():
         yield '<pre><code>'
