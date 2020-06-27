@@ -132,6 +132,7 @@ def rewrite(requested):
         return render_template(
             f'{APPNAME}/worker-install.html',
             remote=urlsplit_requested.geturl(),
+            browser_additional='MicroMessenger' in request.user_agent.string,
             worker_settings=dict(
                 version=WORKER_VERSION,
                 protocol=request.scheme,

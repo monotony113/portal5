@@ -20,11 +20,13 @@ from typing import Tuple, Dict
 from urllib.parse import urljoin, urlsplit, unquote, SplitResult
 
 import requests
-from flask import current_app, Request, Response, render_template, stream_with_context, abort
+from flask_babel import _
+from flask import current_app, Request, Response, stream_with_context, abort
 from werkzeug.datastructures import Headers, MultiDict
+from werkzeug.exceptions import HTTPException
 
 from . import exception
-from .filter import RequestTest
+from .security import RequestTest
 
 
 def metadata_from_request(g, request: Request, endpoint, values):
@@ -64,10 +66,10 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
                 requested = f'{requested}?{query}'
             return exception.PortalMissingProtocol(requested)
         else:
-            return exception.PortalBadRequest(f'Unsupported URL scheme "{requested.scheme}"')
+            return exception.PortalBadRequest(_('Unsupported URL scheme "%(scheme)s"', scheme=requested.scheme))
 
     if not requested.netloc:
-        return exception.PortalBadRequest(f'URL <code>{requested.geturl()}</code> missing website domain name or location.')
+        return exception.PortalBadRequest(_('URL <code>%(url)s</code> missing website domain name or location.', url=requested.geturl()))
 
     return None
 
@@ -90,7 +92,7 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
             except Exception:
                 pass
             if should_abort:
-                abort(403, render_template('server-protection.html', remote=url, test=t))
+                abort(exception.PortalSelfProtect(url, t))
 
         remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
@@ -107,22 +109,24 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
         )
         return remote_response, flask_response
 
-    except Exception as e:
+    # except Exception as e:
+    #     raise e
+    except HTTPException as e:
         raise e
     except requests.HTTPError as e:
-        return abort(int(e.response.status_code), f'Got HTTP {e.response.status_code} while accessing <code>{url}</code>')
+        return abort(int(e.response.status_code), _('Got HTTP %(code)d while accessing <code>%(url)s</code>', code=e.response.status_code, url=url))
     except requests.exceptions.TooManyRedirects:
-        return abort(400, f'Unable to access <code>{url}</code><br/>Too many redirects.')
+        return abort(400, _('Unable to access <code>%(url)s</code><br/>Too many redirects.', url=url))
     except requests.exceptions.SSLError:
-        return abort(502, f'Unable to access <code>{url}</code><br/>An SSL error occured, remote server may not support HTTPS.')
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>An TLS/SSL error occured, remote server may not support HTTPS.', url=url))
     except requests.ConnectionError:
-        return abort(502, f'Unable to access <code>{url}</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.')
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.', url=url))
     except Exception as e:
-        return abort(500, dedent(f"""
+        return abort(500, dedent(_("""
         <pre><code>An unhandled error occured while processing this request.
-        Parsed URL: {url}
-        Error name: {e.__class__.__name__}</code></pre>
-        """))
+        Parsed URL: %(url)s
+        Error name: %(errname)s</code></pre>
+        """, url=url, errname=e.__class__.__name__)))
 
 
 def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> Tuple[SplitResult, Dict[str, MultiDict]]:

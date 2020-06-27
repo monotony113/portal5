@@ -1,4 +1,4 @@
-# config.py
+# i18n.py
 # Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -14,12 +14,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# PORTAL_URL_FILTERS = [
-#     dict(name='*', description='all URLs', test=lambda r: True),
-#     dict(name='http://*', description='No plain-text HTTP', test=lambda r: urlsplit(r.url).scheme == 'http'),
-# ]
+from flask import Flask, request
+from flask_babel import Babel
 
-# PORTAL5_PASSTHRU_DOMAINS = {'fonts.googleapis.com', 'fonts.gstatic.com'}
-# PORTAL5_PASSTHRU_URLS = {}
 
-LANGUAGES = ['en', 'zh_cn']
+def setup_languages(app: Flask):
+    babel = Babel(app)
+
+    @babel.localeselector
+    def get_locale():
+        return (request.args.get('lang', None) or request.accept_languages.best_match(app.config['LANGUAGES'])).replace('-', '_')

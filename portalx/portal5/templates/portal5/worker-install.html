@@ -21,7 +21,7 @@
 
 {% set use_portal3 %}
 <li>
-    Use <code><em>portal3</em></code>, a previous version of this tool that relies on cookies for redirection.
+    {{_( 'Use' )}} <code><em>portal3</em></code>{{_( ', a previous version of this tool that relies on cookies for redirection.' )}}
     <br>
     → <code><strong><a href="//portal3.{{ g.sld }}/{{ remote }}">{{ request.scheme }}://portal3.{{ g.sld }}/{{ remote }}</a></strong></code>
 </li>
@@ -36,42 +36,46 @@
         </blockquote>
 
         <div id="worker-failed">
-            <h3>Failed to initialize Service Worker</h3>
+            <h3>{{_('Failed to initialize Service Worker')}}</h3>
             <p>
-                <code>portal5</code> relies on a web technology called
+                <code>portal5</code> {{_('relies on a web technology called')}}
                 <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-                to work, which failed to initialize. The reason, if any, is displayed above.
+                {{_('to work, which failed to initialize. The reason, if any, is displayed above.')}}
             </p>
-            <p>You may:</p>
+            <p>{{_('You may:')}}</p>
             <ul>
-                <li>Try clearing cookies and website data for {{ server }}.</li>
-                <li>Try visiting this page later.</li>
+                <li>{{ _('Try clearing cookies and data for this website.') }}</li>
+                <li>{{ _('Try visiting this page later.') }}</li>
                 {{ use_portal3 }}
             </ul>
         </div>
 
         <div id="worker-unavailable">
-            <h3>Service Worker API unavailable</h3>
+            <h3>{{_('Service Worker API unavailable')}}</h3>
             <p>
-                <code>portal5</code> relies on a web technology called
+                <code>portal5</code> {{_('relies on a web technology called')}}
                 <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-                to work, which is not supported by your browser. <em>(Note: Firefox disables Service Workers in Private Browsing mode)</em>
+                {{_('to work, which is not supported by your browser.')}} 
+                <em>{{_('(Note: Firefox disables Service Workers in Private Browsing mode)')}} </em>
+                {% if browser_additional %}
+                <em>{{_('(If you are viewing this in WeChat, please open this page in your browser)')}}</em>
+                {% endif %}
             </p>
-            <p>You may:</p>
+            <p>{{_('You may:')}}</p>
             <ul>
-                <li>Switch to a another browser. (URL to this page: <code><strong><a href="{{ request.url }}">{{ request.url }}</a></strong></code>)</li>
+                <li>{{_('Switch to a another browser.')}}</li>
                 {{ use_portal3 }}
             </ul>
         </div>
 
         <noscript>
             <div id="worker-noscript">
-                <h3>JavaScript is not enabled</h3>
-                <p><code>portal5</code> requires <strong>JavaScript</strong> to work.</p>
+                <h3>{{_('JavaScript is not enabled')}}</h3>
+                <p><code>portal5</code> {{_('requires')}} <strong>JavaScript</strong> {{_('to work.')}}</p>
             </div>
-            <p>You may:</p>
+            <p>{{_('You may:')}}</p>
             <ul>
-                <li>Enable JavaScript in your browser, or switch to a newer browser.</li>
+                <li>{{_('Enable JavaScript in your browser, or switch to a newer browser.')}}</li>
                 {{ use_portal3 }}
             </ul>
         </noscript>

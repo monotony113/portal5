@@ -45,3 +45,11 @@ class RequestTest(Hashable):
             return cls(f, name, description)
 
         return wrap
+
+
+def setup_filters(app):
+    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
+    tests = set()
+    for kwargs in filter_kwargs:
+        tests.add(RequestTest(**kwargs))
+    app.config['PORTAL_URL_FILTERS'] = tests

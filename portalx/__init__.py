@@ -22,8 +22,7 @@ from dotenv import load_dotenv
 from flask import Flask, g, request, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import config
-from .filter import RequestTest
+from . import config, security, i18n
 
 load_dotenv()
 
@@ -63,14 +62,6 @@ def setup_debug(app: Flask):
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
-def setup_filters(app: Flask):
-    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
-    tests = set()
-    for kwargs in filter_kwargs:
-        tests.add(RequestTest(**kwargs))
-    app.config['PORTAL_URL_FILTERS'] = tests
-
-
 def setup_jinja(app: Flask):
     app.jinja_env.trim_blocks = True
     app.jinja_env.lstrip_blocks = True
@@ -89,10 +80,12 @@ def create_app(*, override=None) -> Flask:
 
     load_blueprints(app)
     setup_urls(app)
-    setup_filters(app)
     setup_error_handling(app)
     setup_jinja(app)
     setup_debug(app)
+
+    security.setup_filters(app)
+    i18n.setup_languages(app)
 
     return app
 

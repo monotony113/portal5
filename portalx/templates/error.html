@@ -12,10 +12,12 @@
 {% elif statuscode == 404 %}
 {% set text = "Not Found" %}
 {% set extra %}
-<h5>(Not to be confused with
-    <mark><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/451" target="_blank">
-            <code>HTTP <span class="color-ulysses-magenta-fg">451</span> Unavailable For Legal Reasons</code>
-        </a></mark>)</h5>
+{% set http_451 %}
+<mark><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/451" target="_blank">
+        <code>HTTP <span class="color-ulysses-magenta-fg">451</span> Unavailable For Legal Reasons</code>
+    </a></mark>
+{% endset %}
+<h5>{{_( '(Not to be confused with %(http_451)s)', http_451=http_451 )}}</h5>
 {% endset %}
 
 {% elif statuscode == 451 %}
@@ -44,10 +46,9 @@
     <article>
         <h1><code>HTTP <span class="color-ulysses-magenta-fg"><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{{ statuscode }}" target="_blank">{{ statuscode }}</a></span> {{ text }}</code></h1>
         {% if message %}
-        {{ message }}
+        <p>{{ message }}</p>
         {% endif %}
-        {% block extra %}
-        {% endblock %}
+        {{ extra }}
     </article>
 </main>
 {% endblock %}

@@ -13,7 +13,8 @@
     <title>{{ title|default('', true) }}</title>
 
     {% block styles %}
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Noto+Serif+SC:wght@300;500;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+    <link href="//static.{{ g.sld }}/styles/fonts-cjk-no-latin.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="//static.{{ g.sld }}/styles/style.css" />
     {% endblock %}
 

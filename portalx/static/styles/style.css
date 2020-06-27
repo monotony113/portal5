@@ -5,7 +5,7 @@
 body {
     background-color: #21252c;
     color: #d3d3d3;
-    font-family: 'Lato', 'Helvetica Neue', 'Helvetica', -apple-system,
+    font-family: 'Noto Serif SC', 'Lato', 'Helvetica Neue', 'Helvetica', -apple-system,
         BlinkMacSystemFont, 'Noto Sans', 'Ubuntu', 'Open Sans', sans-serif;
     margin: 0;
 }
@@ -60,7 +60,7 @@ article h3,
 article h4,
 article h5,
 article h6 {
-    font-family: 'Lato', 'Helvetica Neue', 'Helvetica', -apple-system,
+    font-family: 'Noto Serif SC', 'Lato', 'Helvetica Neue', 'Helvetica', -apple-system,
         BlinkMacSystemFont, 'Noto Sans', 'Ubuntu', 'Open Sans', sans-serif;
 }
 

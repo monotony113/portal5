@@ -45,3 +45,13 @@ class PortalMissingProtocol(PortalBadRequest):
 
     def get_response(self, environ=None):
         return Response(render_template('portal3/missing-protocol.html', remote=self.requested), self.code)
+
+
+class PortalSelfProtect(PortalHTTPException):
+    def __init__(self, url, test, **kwargs):
+        super().__init__(description=None, response=None, status=403, unsafe=True, **kwargs)
+        self.url = url
+        self.test = test
+
+    def get_response(self, environ=None):
+        return Response(render_template('server-protection.html', remote=self.url, test=self.test), 403)
