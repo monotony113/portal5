@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2020-06-27 18:43+0800\n"
+"POT-Creation-Date: 2020-06-28 00:50+0800\n"
 "PO-Revision-Date: 2020-06-27 15:10+0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_Hans_CN\n"
@@ -85,68 +85,68 @@ msgstr "使用"
 msgid ", a previous version of this tool that relies on cookies for redirection."
 msgstr "（仅依靠 Cookie 进行地址跳转）"
 
-#: portalx/portal5/templates/portal5/worker-install.html:39
+#: portalx/portal5/templates/portal5/worker-install.html:35
 msgid "Failed to initialize Service Worker"
 msgstr "Service Worker 加载失败"
 
-#: portalx/portal5/templates/portal5/worker-install.html:41
-#: portalx/portal5/templates/portal5/worker-install.html:56
+#: portalx/portal5/templates/portal5/worker-install.html:37
+#: portalx/portal5/templates/portal5/worker-install.html:52
 msgid "relies on a web technology called"
 msgstr "依赖"
 
-#: portalx/portal5/templates/portal5/worker-install.html:43
+#: portalx/portal5/templates/portal5/worker-install.html:39
 msgid ""
 "to work, which failed to initialize. The reason, if any, is displayed "
-"above."
-msgstr "来运作，但是 Service Worker 加载失败了；代码记录如上。"
+"below."
+msgstr "来运作，但是 Service Worker 加载失败了；代码记录见页尾。"
 
-#: portalx/portal5/templates/portal5/worker-install.html:45
-#: portalx/portal5/templates/portal5/worker-install.html:64
-#: portalx/portal5/templates/portal5/worker-install.html:76
+#: portalx/portal5/templates/portal5/worker-install.html:41
+#: portalx/portal5/templates/portal5/worker-install.html:62
+#: portalx/portal5/templates/portal5/worker-install.html:74
 msgid "You may:"
 msgstr "你可以："
 
-#: portalx/portal5/templates/portal5/worker-install.html:47
+#: portalx/portal5/templates/portal5/worker-install.html:43
 msgid "Try clearing cookies and data for this website."
 msgstr "尝试清除本网址的 Cookies 和缓存数据。"
 
-#: portalx/portal5/templates/portal5/worker-install.html:48
+#: portalx/portal5/templates/portal5/worker-install.html:44
 msgid "Try visiting this page later."
 msgstr "稍后再访问本站。"
 
-#: portalx/portal5/templates/portal5/worker-install.html:54
+#: portalx/portal5/templates/portal5/worker-install.html:50
 msgid "Service Worker API unavailable"
 msgstr "Service Worker API 不可用"
 
-#: portalx/portal5/templates/portal5/worker-install.html:58
+#: portalx/portal5/templates/portal5/worker-install.html:54
 msgid "to work, which is not supported by your browser."
 msgstr "来运作，但是您的浏览器不支持 Service Worker."
 
-#: portalx/portal5/templates/portal5/worker-install.html:59
+#: portalx/portal5/templates/portal5/worker-install.html:57
 msgid "(Note: Firefox disables Service Workers in Private Browsing mode)"
 msgstr "（注：Firefox 在隐私浏览模式中会关闭 Service Worker）"
 
-#: portalx/portal5/templates/portal5/worker-install.html:61
+#: portalx/portal5/templates/portal5/worker-install.html:59
 msgid "(If you are viewing this in WeChat, please open this page in your browser)"
-msgstr "（若您正在使用微信，请选择“在浏览器中打开”）"
+msgstr "（若使用微信浏览，请选择“在浏览器中打开”）"
 
-#: portalx/portal5/templates/portal5/worker-install.html:66
+#: portalx/portal5/templates/portal5/worker-install.html:64
 msgid "Switch to a another browser."
 msgstr "升级浏览器"
 
-#: portalx/portal5/templates/portal5/worker-install.html:73
+#: portalx/portal5/templates/portal5/worker-install.html:71
 msgid "JavaScript is not enabled"
 msgstr "JavaScript 不可用"
 
-#: portalx/portal5/templates/portal5/worker-install.html:74
+#: portalx/portal5/templates/portal5/worker-install.html:72
 msgid "requires"
 msgstr "需要"
 
-#: portalx/portal5/templates/portal5/worker-install.html:74
+#: portalx/portal5/templates/portal5/worker-install.html:72
 msgid "to work."
 msgstr "来运作。"
 
-#: portalx/portal5/templates/portal5/worker-install.html:78
+#: portalx/portal5/templates/portal5/worker-install.html:76
 msgid "Enable JavaScript in your browser, or switch to a newer browser."
 msgstr "启用 JavaScript，或升级浏览器。"
 

@@ -143,7 +143,7 @@ def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> 
     return url, multidicts
 
 
-def copy_headers(request: Request, remote: requests.Response, response: Response) -> Headers:
+def copy_headers(remote: requests.Response, response: Response, *, server_origin) -> Headers:
     remote_url: SplitResult = urlsplit(remote.url)
     headers = Headers(remote.headers.items())
 
@@ -152,13 +152,13 @@ def copy_headers(request: Request, remote: requests.Response, response: Response
     response.headers = headers
 
     if 'Location' in headers:
-        headers['Location'] = f'{request.scheme}://{request.host}/{urljoin(remote_url.geturl(), headers["Location"])}'
+        headers['Location'] = f'{server_origin}/{urljoin(remote_url.geturl(), headers["Location"])}'
 
     response.headers.update(headers)
     return headers
 
 
-def copy_cookies(request: Request, remote: requests.Response, response: Response) -> list:
+def copy_cookies(remote: requests.Response, response: Response, *, server_domain) -> list:
     remote_url: SplitResult = urlsplit(remote.url)
     cookie_jar = remote.cookies
 
@@ -172,10 +172,16 @@ def copy_cookies(request: Request, remote: requests.Response, response: Response
         cookie_main = get_cookie_main(cookie)
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
-        cookie_domain = request.host if cookie.domain_specified and request.host not in ('localhost', '127.0.0.1') else None
+        cookie_domain = server_domain if cookie.domain_specified and server_domain not in ('localhost', '127.0.0.1') else None
         cookie_path = f'{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
-        cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
-        cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
+        cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite', None))
+        cookies.append({
+            k: v
+            for k, v in dict(
+                zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])
+            ).items()
+            if v is not None
+        })
 
     for cookie in cookies:
         response.set_cookie(**cookie)
@@ -183,7 +189,7 @@ def copy_cookies(request: Request, remote: requests.Response, response: Response
     return cookies
 
 
-def guard_cors(request: Request, remote: requests.Response, response: Response) -> None:
+def enforce_cors(remote: requests.Response, response: Response, *, server_origin) -> None:
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
     if not allow_origin or allow_origin == '*':
         return
@@ -194,4 +200,4 @@ def guard_cors(request: Request, remote: requests.Response, response: Response) 
         response.headers.pop('Access-Control-Allow-Origin', None)
         return
 
-    response.headers['Access-Control-Allow-Origin'] = f'{request.scheme}://{request.host}'
+    response.headers['Access-Control-Allow-Origin'] = server_origin

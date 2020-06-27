@@ -91,8 +91,8 @@ def forward(requested):
 
         remote, response = common.pipe_request(url, method=request.method, **kwargs)
 
-        common.copy_headers(request, remote, response)
-        common.copy_cookies(request, remote, response)
+        common.copy_headers(remote, response, server_origin=f'{request.scheme}://{request.host}')
+        common.copy_cookies(remote, response, server_domain=request.host)
 
         if not g.direct_request:
             set_cookies(response, scheme=urlsplit_requested.scheme, domain=urlsplit_requested.netloc, max_age=1800)

@@ -31,16 +31,12 @@
 <main>
     <article>
         <h1><code>portal5</code></h1>
-        <blockquote>
-            <pre><code id="console"></code></pre>
-        </blockquote>
-
         <div id="worker-failed">
-            <h3>{{_('Failed to initialize Service Worker')}}</h3>
+            <h3><strong>{{_('Failed to initialize Service Worker')}}</strong></h3>
             <p>
                 <code>portal5</code> {{_('relies on a web technology called')}}
                 <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-                {{_('to work, which failed to initialize. The reason, if any, is displayed above.')}}
+                {{_('to work, which failed to initialize. The reason, if any, is displayed below.')}}
             </p>
             <p>{{_('You may:')}}</p>
             <ul>
@@ -51,16 +47,18 @@
         </div>
 
         <div id="worker-unavailable">
-            <h3>{{_('Service Worker API unavailable')}}</h3>
+            <h3><strong>{{_('Service Worker API unavailable')}}</strong></h3>
             <p>
                 <code>portal5</code> {{_('relies on a web technology called')}}
                 <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
                 {{_('to work, which is not supported by your browser.')}} 
-                <em>{{_('(Note: Firefox disables Service Workers in Private Browsing mode)')}} </em>
-                {% if browser_additional %}
-                <em>{{_('(If you are viewing this in WeChat, please open this page in your browser)')}}</em>
-                {% endif %}
             </p>
+            <ul>
+                <li><em>{{_('(Note: Firefox disables Service Workers in Private Browsing mode)')}}</em></li>
+                {% if browser_additional %}
+                <li><em>{{_('(If you are viewing this in WeChat, please open this page in your browser)')}}</em></li>
+                {% endif %}
+            </ul>
             <p>{{_('You may:')}}</p>
             <ul>
                 <li>{{_('Switch to a another browser.')}}</li>
@@ -70,7 +68,7 @@
 
         <noscript>
             <div id="worker-noscript">
-                <h3>{{_('JavaScript is not enabled')}}</h3>
+                <h3><strong>{{_('JavaScript is not enabled')}}</strong></h3>
                 <p><code>portal5</code> {{_('requires')}} <strong>JavaScript</strong> {{_('to work.')}}</p>
             </div>
             <p>{{_('You may:')}}</p>
@@ -79,6 +77,10 @@
                 {{ use_portal3 }}
             </ul>
         </noscript>
+
+        <blockquote>
+            <pre><code id="console"></code></pre>
+        </blockquote>
     </article>
 </main>
 {% endblock %}

@@ -94,8 +94,42 @@ def preprocess(endpoint, values):
         )
 
 
+def install_worker(url):
+    service_domains = {
+        f'{rule.subdomain}.{g.sld}'
+        for rule in current_app.url_map.iter_rules()
+        if rule.subdomain
+    }
+    passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
+    passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
+
+    return render_template(
+        f'{APPNAME}/worker-install.html',
+        remote=url,
+        browser_additional='MicroMessenger' in request.user_agent.string,
+        worker_settings=dict(
+            version=WORKER_VERSION,
+            protocol=request.scheme,
+            host=request.host,
+            passthru=dict(
+                domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
+                urls={k: True for k in passthru_urls}
+            )
+        )
+    )
+
+
+def fetch(url, **kwargs):
+    origin = f'{request.scheme}://{request.host}'
+    remote, response = common.pipe_request(url, method=request.method, **kwargs)
+    common.copy_headers(remote, response, server_origin=origin)
+    common.copy_cookies(remote, response, server_domain=request.host)
+    common.enforce_cors(remote, response, server_origin=origin)
+    return response
+
+
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-def rewrite(requested):
+def forward(requested):
     urlsplit_requested = g.urlsplit_requested
     if not urlsplit_requested.path:
         urlsplit_requested = SplitResult(*[*urlsplit_requested[:2], '/', *urlsplit_requested[3:]])
@@ -106,6 +140,7 @@ def rewrite(requested):
         abort(guard)
 
     url = urlsplit_requested.geturl()
+
     if url != requested:
         if request.query_string:
             url = urljoin(url, f'?{request.query_string.decode("utf8")}')
@@ -113,47 +148,16 @@ def rewrite(requested):
 
     requests_kwargs = dict(**g.request_metadata, data=g.request_payload)
 
-    def fetch():
-        remote, response = common.pipe_request(url, method=request.method, **requests_kwargs)
-        common.copy_headers(request, remote, response)
-        common.copy_cookies(request, remote, response)
-        common.guard_cors(request, remote, response)
-        return response
-
-    def install_worker():
-        service_domains = {
-            f'{rule.subdomain}.{g.sld}'
-            for rule in current_app.url_map.iter_rules()
-            if rule.subdomain
-        }
-        passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
-        passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
-
-        return render_template(
-            f'{APPNAME}/worker-install.html',
-            remote=urlsplit_requested.geturl(),
-            browser_additional='MicroMessenger' in request.user_agent.string,
-            worker_settings=dict(
-                version=WORKER_VERSION,
-                protocol=request.scheme,
-                host=request.host,
-                passthru=dict(
-                    domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
-                    urls={k: True for k in passthru_urls}
-                )
-            )
-        )
-
     worker_ver = g.request_worker_ver
     if worker_ver:
         if worker_ver == WORKER_VERSION:
-            return fetch()
+            return fetch(url, **requests_kwargs)
         else:
-            return install_worker()
+            return install_worker(url)
 
     else:
         head, _ = common.pipe_request(url, method='HEAD', **requests_kwargs)
         if 'text/html' in head.headers.get('Content-Type', ''):
-            return install_worker()
+            return install_worker(url)
         else:
-            return fetch()
+            return fetch(url, **requests_kwargs)
