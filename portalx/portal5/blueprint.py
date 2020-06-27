@@ -65,22 +65,24 @@ def service_worker_reinstall():
 @portal5.url_value_preprocessor
 def preprocess(endpoint, values):
     common.metadata_from_request(g, request, endpoint, values)
+    headers: dict = g.request_headers
 
-    worker_ver = g.request_headers.pop('X-Portal5-Worker-Version', None)
+    worker_ver = headers.pop('X-Portal5-Worker-Version', None)
     try:
         g.request_worker_ver = int(worker_ver)
     except (TypeError, ValueError):
         g.request_worker_ver = None
 
-    referrer = g.request_headers.pop('X-Portal5-Referrer', None)
+    referrer = headers.pop('X-Portal5-Referrer', None)
     if referrer:
-        g.request_headers['Referer'] = referrer
+        headers['Referer'] = referrer
 
-    origin = g.request_headers.pop('X-Portal5-Origin', None)
-    if origin:
-        g.request_headers['Origin'] = origin
-    else:
-        g.request_headers.pop('Origin', None)
+    headers.pop('Origin', None)
+    origin = headers.pop('X-Portal5-Origin', None)
+    fetch_mode = headers.pop('X-Portal5-Mode', None)
+    if origin and (fetch_mode == 'cors' or request.method not in ('GET', 'HEAD')):
+        headers['Origin'] = origin
+    g.request_origin = origin
 
     origin_domain = None
     if origin:
@@ -124,7 +126,8 @@ def fetch(url, **kwargs):
     remote, response = common.pipe_request(url, method=request.method, **kwargs)
     common.copy_headers(remote, response, server_origin=origin)
     common.copy_cookies(remote, response, server_domain=request.host)
-    common.enforce_cors(remote, response, server_origin=origin)
+    common.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=origin)
+    common.enforce_csp(remote, response, request_origin=g.request_origin, server_origin=origin)
     return response
 
 

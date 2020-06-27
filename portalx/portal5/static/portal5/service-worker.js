@@ -22,6 +22,9 @@ importScripts('localforage.min.js')
 const K_SETTINGS = 'portal5:worker:settings'
 
 self.settings = null
+self.CLIENT_RECORD_LIMIT = 100
+
+localforage.config({ name: 'portal5' })
 
 self.addEventListener('install', (event) => {
     var init = async () => {
@@ -130,7 +133,9 @@ function handleFetchRewriteURL(event) {
             }
         }
 
-        if (represented) localforage.setItem('portal5:client:' + client.id, { represented: represented.href })
+        if (represented)
+            localforage.setItem('portal5:client:' + client.id, { represented: represented.href, atime: Date.now() })
+        trimClientRecords()
 
         if (request.referrer) {
             let referrerURL = new URL(request.referrer)
@@ -174,9 +179,39 @@ function handleFetchRewriteURL(event) {
         let body = await request.blob()
         if (body.size > 0) requestOpts.body = body
 
-        if (referrer) headers.set('X-Portal5-Referrer', referrer.href)
-        if (request.mode == 'cors' && request.method != 'GET' && request.method != 'HEAD')
-            headers.set('X-Portal5-Origin', referrer.origin)
+        if (referrer) {
+            let setReferrer = (part) => headers.set('X-Portal5-Referrer', referrer[part])
+            switch (request.referrerPolicy) {
+                case 'no-referrer':
+                    break
+                case 'no-referrer-when-downgrade':
+                    if (synthesized.protocol == referrer.protocol) setReferrer('href')
+                    break
+                case 'origin':
+                    setReferrer('origin')
+                    break
+                case 'origin-when-cross-origin':
+                    if (synthesized.origin != referrer.origin) setReferrer('origin')
+                    else setReferrer('href')
+                    break
+                case 'same-origin':
+                    if (synthesized.origin == referrer.origin) setReferrer('href')
+                    break
+                case 'strict-origin':
+                    if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                    break
+                case 'strict-origin-when-cross-origin':
+                    if (synthesized.origin == referrer.origin) setReferrer('href')
+                    else if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                    break
+                default:
+                    setReferrer('href')
+                    break
+            }
+        }
+
+        headers.set('X-Portal5-Origin', referrer.origin)
+        headers.set('X-Portal5-Mode', request.mode)
 
         let final = new URL(settings.protocol + '://' + settings.host + '/' + synthesized.href)
         if (final.href != requested.href) {
@@ -187,4 +222,23 @@ function handleFetchRewriteURL(event) {
         }
     }
     event.respondWith(synthesize())
+}
+
+async function trimClientRecords() {
+    let limit = self.CLIENT_RECORD_LIMIT
+    let length = await localforage.length()
+    if (length > limit) {
+        let keys = await localforage.keys()
+        let staleRecords = (await Promise.all(keys.map(async (k) => [k, (await localforage.getItem(k)).atime])))
+            .filter((t) => t[1] != undefined)
+            .sort((l, r) => r[1] - l[1])
+            .slice(limit)
+        await Promise.all(
+            staleRecords.map(async (t) => {
+                console.log(t[0].slice(15))
+                let client = await clients.get(t[0].slice(15))
+                if (!client) await localforage.removeItem(t[0])
+            })
+        )
+    }
 }

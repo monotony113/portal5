@@ -189,14 +189,12 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
     return cookies
 
 
-def enforce_cors(remote: requests.Response, response: Response, *, server_origin) -> None:
+def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
     if not allow_origin or allow_origin == '*':
         return
 
-    origin = remote.request.headers.get('Origin', None)
-
-    if allow_origin != origin:
+    if allow_origin != request_origin:
         response.headers.pop('Access-Control-Allow-Origin', None)
         return
 
