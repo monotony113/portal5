@@ -16,19 +16,20 @@
 
 from operator import attrgetter
 from textwrap import dedent
-from typing import Tuple
+from typing import Tuple, Dict
 from urllib.parse import urljoin, urlsplit, unquote, SplitResult
 
 import requests
 from flask import Request, Response, stream_with_context, render_template, abort
-from werkzeug.datastructures import Headers
+from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.exceptions import HTTPException
 
 
 def metadata_from_request(g, request: Request, endpoint, values):
     g.request_url_parts = urlsplit(request.url)
     g.request_headers = Headers(request.headers)
-    g.request_cookies = dict(**request.cookies)
+    g.request_params = MultiDict(request.args)
+    g.request_cookies = MultiDict(request.cookies)
     g.request_fetch_mode = g.request_headers.get('Sec-Fetch-Mode')
 
     g.request_referrer = urlsplit(request.referrer) if request.referrer else None
@@ -39,9 +40,8 @@ def metadata_from_request(g, request: Request, endpoint, values):
     g.request_headers.pop('Referer', None)
     g.request_headers.pop('Host', None)
 
-    g.requests_kwargs = dict(headers=g.request_headers, params=request.args, cookies=g.request_cookies)
-    if request.content_length:
-        g.requests_kwargs['data'] = request.stream
+    g.request_metadata = dict(headers=g.request_headers, params=g.request_params, cookies=g.request_cookies)
+    g.request_payload = request.stream if request.content_length else None
 
 
 def normalize_url(url) -> SplitResult:
@@ -112,14 +112,38 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
         """))
 
 
-def masquerade_response(request: Request, remote: requests.Response, response: Response) -> Tuple[list, dict]:
+def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> Tuple[SplitResult, Dict[str, MultiDict]]:
+    path = url.path.replace(find, replace)
+    query = url.query.replace(find, replace)
+    url = SplitResult(url.scheme, url.netloc, path, query, url.fragment)
+
+    for name in multidicts:
+        dict_ = multidicts[name]
+        multidicts[name] = type(dict_)({
+            k: list(map(lambda v: v.replace(find, replace), dict_.getlist(k, type=str))) for k in dict_.keys()
+        })
+
+    return url, multidicts
+
+
+def copy_headers(request: Request, remote: requests.Response, response: Response) -> Headers:
     remote_url: SplitResult = urlsplit(remote.url)
-    cookie_jar = remote.cookies
     headers = Headers(remote.headers.items())
 
     headers.pop('Set-Cookie', None)
     headers.pop('Transfer-Encoding', None)
     response.headers = headers
+
+    if 'Location' in headers:
+        headers['Location'] = f'{request.scheme}://{request.host}/{urljoin(remote_url.geturl(), headers["Location"])}'
+
+    response.headers.update(headers)
+    return headers
+
+
+def copy_cookies(request: Request, remote: requests.Response, response: Response) -> list:
+    remote_url: SplitResult = urlsplit(remote.url)
+    cookie_jar = remote.cookies
 
     cookies = list()
     get_cookie_main = attrgetter('name', 'value', 'expires')
@@ -136,17 +160,13 @@ def masquerade_response(request: Request, remote: requests.Response, response: R
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite'))
         cookies.append(dict(zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])))
 
-    if 'Location' in headers:
-        headers['Location'] = f'{request.scheme}://{request.host}/{urljoin(remote_url.geturl(), headers["Location"])}'
-
     for cookie in cookies:
         response.set_cookie(**cookie)
-    response.headers.update(headers)
 
-    return cookies, headers
+    return cookies
 
 
-def masquerade_cors(request: Request, remote: requests.Response, response: Response) -> None:
+def guard_cors(request: Request, remote: requests.Response, response: Response) -> None:
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
     if not allow_origin or allow_origin == '*':
         return

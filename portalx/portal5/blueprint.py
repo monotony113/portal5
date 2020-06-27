@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from urllib.parse import SplitResult, urljoin
+from urllib.parse import SplitResult, urlsplit, urljoin
 
 from flask import Blueprint, Request, render_template, g, abort, redirect, current_app
 from flask import request
@@ -82,6 +82,15 @@ def preprocess(endpoint, values):
     else:
         g.request_headers.pop('Origin', None)
 
+    origin_domain = None
+    if origin:
+        origin_domain = urlsplit(origin).netloc
+    elif referrer and not origin:
+        origin_domain = urlsplit(referrer).netloc
+
+    if origin_domain:
+        g.remote_url_parts, g.request_metadata = common.conceal_origin(request.host, origin_domain, g.remote_url_parts, **g.request_metadata)
+
 
 @portal5.route('/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def rewrite(remote):
@@ -100,13 +109,16 @@ def rewrite(remote):
             url = urljoin(url, f'?{request.query_string.decode("utf8")}')
         return redirect(f'{request.scheme}://{request.host}/{url}', 307)
 
-    def direct_response():
-        remote, response = common.pipe_request(url, method=request.method, **g.requests_kwargs)
-        common.masquerade_response(request, remote, response)
-        common.masquerade_cors(request, remote, response)
+    requests_kwargs = dict(**g.request_metadata, data=g.request_payload)
+
+    def fetch():
+        remote, response = common.pipe_request(url, method=request.method, **requests_kwargs)
+        common.copy_headers(request, remote, response)
+        common.copy_cookies(request, remote, response)
+        common.guard_cors(request, remote, response)
         return response
 
-    def update_worker():
+    def install_worker():
         service_domains = {
             f'{rule.subdomain}.{g.sld}'
             for rule in current_app.url_map.iter_rules()
@@ -132,13 +144,13 @@ def rewrite(remote):
     worker_ver = g.request_worker_ver
     if worker_ver:
         if worker_ver == WORKER_VERSION:
-            return direct_response()
+            return fetch()
         else:
-            return update_worker()
+            return install_worker()
 
     else:
-        head, _ = common.pipe_request(url, method='HEAD', **g.requests_kwargs)
+        head, _ = common.pipe_request(url, method='HEAD', **requests_kwargs)
         if 'text/html' in head.headers.get('Content-Type', ''):
-            return update_worker()
+            return install_worker()
         else:
-            return direct_response()
+            return fetch()
