@@ -39,7 +39,7 @@ def home():
 def collect_data_from_request(endpoint, values: dict):
     common.metadata_from_request(g, request, endpoint, values)
 
-    if 'remote' in values:
+    if 'requested' in values:
         g.direct_request = g.request_cookies.get(f'{APPNAME}-remote-redirect', False)
 
         g.base_scheme = g.request_cookies.get(f'{APPNAME}-remote-scheme')
@@ -51,28 +51,28 @@ def collect_data_from_request(endpoint, values: dict):
             g.referred_by = urlsplit(referrer)
 
 
-@portal3.route('/direct/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
-def forward_direct(remote):
+@portal3.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
+def forward_direct(requested):
     g.direct_request = True
     g.prefix = '/direct/'
-    return forward(remote)
+    return forward(requested)
 
 
-@portal3.route('/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
-def forward(remote):
-    remote_parts = g.remote_url_parts
+@portal3.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
+def forward(requested):
+    urlsplit_requested = g.urlsplit_requested
 
     if (
         not g.direct_request
         and (not g.request_fetch_mode or g.request_fetch_mode not in ('navigate', 'nested-navigate'))
         and g.referred_by and g.referred_by.scheme and g.referred_by.netloc
-        and remote_parts.netloc != g.base_domain
+        and urlsplit_requested.netloc != g.base_domain
     ):
-        base_url_parts = urlsplit(urljoin(g.referred_by.geturl(), '.'))
-        subpath = f'{g.remote_url_parts.netloc}/{g.remote_url_parts.path}'.strip('/')
-        remote_parts = urlsplit(urljoin(base_url_parts.geturl(), subpath))
+        urlsplit_base = urlsplit(urljoin(g.referred_by.geturl(), '.'))
+        subpath = f'{g.urlsplit_requested.netloc}/{g.urlsplit_requested.path}'.strip('/')
+        urlsplit_requested = urlsplit(urljoin(urlsplit_base.geturl(), subpath))
 
-    if not remote_parts.scheme and g.base_scheme:
+    if not urlsplit_requested.scheme and g.base_scheme:
         path = f'/{g.base_scheme}://{g.base_domain}{urlsplit(request.url).path}'
         if request.args:
             path = f'{path}?{request.query_string.decode("utf8")}'
@@ -80,13 +80,13 @@ def forward(remote):
         set_cookies(res, path=path, redirect='true', max_age=30)
         return res
 
-    guard = common.guard_incoming_url(g, remote_parts, request)
+    guard = common.guard_incoming_url(g, urlsplit_requested, request)
     if guard:
         abort(guard)
 
-    if g.remote_url_parts == remote_parts:
+    if g.urlsplit_requested == urlsplit_requested:
 
-        url = remote_parts.geturl()
+        url = urlsplit_requested.geturl()
         kwargs = dict(**g.request_metadata, data=g.request_payload)
 
         remote, response = common.pipe_request(url, method=request.method, **kwargs)
@@ -95,13 +95,13 @@ def forward(remote):
         common.copy_cookies(request, remote, response)
 
         if not g.direct_request:
-            set_cookies(response, scheme=remote_parts.scheme, domain=remote_parts.netloc, max_age=1800)
-            set_cookies(response, path=f'{urljoin(url, ".")}', referrer=remote_parts.geturl(), max_age=1800)
+            set_cookies(response, scheme=urlsplit_requested.scheme, domain=urlsplit_requested.netloc, max_age=1800)
+            set_cookies(response, path=f'{urljoin(url, ".")}', referrer=urlsplit_requested.geturl(), max_age=1800)
 
         return response
 
     return redirect(urlunsplit(tuple([
-        *urlsplit(f'{request.scheme}://{request.host}/{remote_parts.geturl()}')[:3],
+        *urlsplit(f'{request.scheme}://{request.host}/{urlsplit_requested.geturl()}')[:3],
         request.query_string.decode('utf8'), ''
     ])), 307)
 

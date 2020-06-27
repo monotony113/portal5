@@ -20,13 +20,14 @@ from typing import Tuple, Dict
 from urllib.parse import urljoin, urlsplit, unquote, SplitResult
 
 import requests
-from flask import Request, Response, stream_with_context, render_template, abort
+from flask import current_app, Request, Response, render_template, stream_with_context, abort
 from werkzeug.datastructures import Headers, MultiDict
-from werkzeug.exceptions import HTTPException
+
+from . import exception
+from .filter import RequestTest
 
 
 def metadata_from_request(g, request: Request, endpoint, values):
-    g.request_url_parts = urlsplit(request.url)
     g.request_headers = Headers(request.headers)
     g.request_params = MultiDict(request.args)
     g.request_cookies = MultiDict(request.cookies)
@@ -34,8 +35,8 @@ def metadata_from_request(g, request: Request, endpoint, values):
 
     g.request_referrer = urlsplit(request.referrer) if request.referrer else None
 
-    if 'remote' in values:
-        g.remote_url_parts = normalize_url(unquote(values['remote']))
+    if 'requested' in values:
+        g.urlsplit_requested = normalize_url(unquote(values['requested']))
 
     g.request_headers.pop('Referer', None)
     g.request_headers.pop('Host', None)
@@ -54,19 +55,19 @@ def normalize_url(url) -> SplitResult:
     return url_parts
 
 
-def guard_incoming_url(g, remote: SplitResult, flask_request: Request):
-    if remote.scheme not in ('http', 'https'):
-        if not remote.scheme:
+def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
+    if requested.scheme not in ('http', 'https'):
+        if not requested.scheme:
             query = flask_request.query_string.decode("utf8")
-            remote = f'https:{remote.geturl()}'
+            requested = f'https:{requested.geturl()}'
             if query:
-                remote = f'{remote}?{query}'
-            return PortalXMissingProtocol(remote)
+                requested = f'{requested}?{query}'
+            return exception.PortalMissingProtocol(requested)
         else:
-            return PortalXBadRequest(f'Unsupported URL scheme "{remote.scheme}"')
+            return exception.PortalBadRequest(f'Unsupported URL scheme "{requested.scheme}"')
 
-    if not remote.netloc:
-        return PortalXBadRequest(f'URL <code>{remote.geturl()}</code> missing website domain name or location.')
+    if not requested.netloc:
+        return exception.PortalBadRequest(f'URL <code>{requested.geturl()}</code> missing website domain name or location.')
 
     return None
 
@@ -79,6 +80,18 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
         outbound = requests.Request(method=method, url=url, **requests_kwargs).prepare()
         if 'Content-Length' in outbound.headers:
             outbound.headers.pop('Transfer-Encoding', None)
+
+        tests = current_app.config.get('PORTAL_URL_FILTERS', set())
+        for t in tests:
+            t: RequestTest
+            should_abort = False
+            try:
+                should_abort = t(outbound)
+            except Exception:
+                pass
+            if should_abort:
+                abort(403, render_template('server-protection.html', remote=url, test=t))
+
         remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
         def pipe(response: requests.Response):
@@ -94,8 +107,8 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
         )
         return remote_response, flask_response
 
-    # except Exception as e:
-    #     raise e
+    except Exception as e:
+        raise e
     except requests.HTTPError as e:
         return abort(int(e.response.status_code), f'Got HTTP {e.response.status_code} while accessing <code>{url}</code>')
     except requests.exceptions.TooManyRedirects:
@@ -178,32 +191,3 @@ def guard_cors(request: Request, remote: requests.Response, response: Response) 
         return
 
     response.headers['Access-Control-Allow-Origin'] = f'{request.scheme}://{request.host}'
-
-
-class PortalXException(Exception):
-    pass
-
-
-class PortalXHTTPException(HTTPException):
-    def __init__(self, description=None, response=None, status=500, unsafe=False, **kwargs):
-        super().__init__(description=description, response=response, **kwargs)
-        self.code = status
-        self.unsafe = unsafe
-
-    def get_response(self, environ=None):
-        return Response(render_template('httperr.html', statuscode=self.code, message=self.description or '', unsafe=self.unsafe), self.code)
-
-
-class PortalXBadRequest(PortalXHTTPException):
-    def __init__(self, description, response=None, **kwargs):
-        super().__init__(description=description, response=response, **kwargs)
-        self.code = 400
-
-
-class PortalXMissingProtocol(PortalXBadRequest):
-    def __init__(self, remote, **kwargs):
-        super().__init__(None, **kwargs)
-        self.remote = remote
-
-    def get_response(self, environ=None):
-        return Response(render_template('portal3/missing-protocol.html', remote=self.remote), self.code)

@@ -46,7 +46,8 @@
         {% if message %}
         {{ message }}
         {% endif %}
-        {{ extra }}
+        {% block extra %}
+        {% endblock %}
     </article>
 </main>
 {% endblock %}

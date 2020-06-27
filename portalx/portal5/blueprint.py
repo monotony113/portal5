@@ -89,22 +89,24 @@ def preprocess(endpoint, values):
         origin_domain = urlsplit(referrer).netloc
 
     if origin_domain:
-        g.remote_url_parts, g.request_metadata = common.conceal_origin(request.host, origin_domain, g.remote_url_parts, **g.request_metadata)
+        g.urlsplit_requested, g.request_metadata = common.conceal_origin(
+            request.host, origin_domain, g.urlsplit_requested, **g.request_metadata
+        )
 
 
-@portal5.route('/<path:remote>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-def rewrite(remote):
-    remote_parts = g.remote_url_parts
-    if not remote_parts.path:
-        remote_parts = SplitResult(*[*remote_parts[:2], '/', *remote_parts[3:]])
-        g.remote_url_parts = remote_parts
+@portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+def rewrite(requested):
+    urlsplit_requested = g.urlsplit_requested
+    if not urlsplit_requested.path:
+        urlsplit_requested = SplitResult(*[*urlsplit_requested[:2], '/', *urlsplit_requested[3:]])
+        g.urlsplit_requested = urlsplit_requested
 
-    guard = common.guard_incoming_url(g, remote_parts, request)
+    guard = common.guard_incoming_url(g, urlsplit_requested, request)
     if guard:
         abort(guard)
 
-    url = remote_parts.geturl()
-    if url != remote:
+    url = urlsplit_requested.geturl()
+    if url != requested:
         if request.query_string:
             url = urljoin(url, f'?{request.query_string.decode("utf8")}')
         return redirect(f'{request.scheme}://{request.host}/{url}', 307)
@@ -129,7 +131,7 @@ def rewrite(remote):
 
         return render_template(
             f'{APPNAME}/worker-install.html',
-            remote=remote_parts.geturl(),
+            remote=urlsplit_requested.geturl(),
             worker_settings=dict(
                 version=WORKER_VERSION,
                 protocol=request.scheme,

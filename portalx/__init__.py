@@ -23,6 +23,7 @@ from flask import Flask, g, request, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import config
+from .filter import RequestTest
 
 load_dotenv()
 
@@ -38,7 +39,7 @@ def load_blueprints(app: Flask):
 
 def setup_error_handling(app: Flask):
     def handle_error(e):
-        return render_template('httperr.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
+        return render_template('error.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
 
     for exc in (400, 403, 404, 451, 500, 502, 503):
         app.register_error_handler(exc, handle_error)
@@ -62,6 +63,14 @@ def setup_debug(app: Flask):
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
+def setup_filters(app: Flask):
+    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
+    tests = set()
+    for kwargs in filter_kwargs:
+        tests.add(RequestTest(**kwargs))
+    app.config['PORTAL_URL_FILTERS'] = tests
+
+
 def setup_jinja(app: Flask):
     app.jinja_env.trim_blocks = True
     app.jinja_env.lstrip_blocks = True
@@ -80,6 +89,7 @@ def create_app(*, override=None) -> Flask:
 
     load_blueprints(app)
     setup_urls(app)
+    setup_filters(app)
     setup_error_handling(app)
     setup_jinja(app)
     setup_debug(app)

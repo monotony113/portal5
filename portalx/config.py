@@ -14,4 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-PORTAL3_LIMITED_URLS = []
+# PORTAL_URL_FILTERS = [
+#     dict(name='*', description='all URLs', test=lambda r: True),
+#     dict(name='http://*', description='No plain-text HTTP', test=lambda r: urlsplit(r.url).scheme == 'http'),
+# ]
+
+# PORTAL5_PASSTHRU_DOMAINS = {'fonts.googleapis.com', 'fonts.gstatic.com'}
+# PORTAL5_PASSTHRU_URLS = {}

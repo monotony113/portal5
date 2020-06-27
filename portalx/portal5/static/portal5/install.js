@@ -34,7 +34,7 @@ async function initServiceWorker() {
         log('await navigator.serviceWorker.ready')
         let registration = await navigator.serviceWorker.ready
         log('serviceWorker.settings')
-        registration.active.postMessage({msg: K_SETTINGS, settings: settings})
+        registration.active.postMessage({ msg: K_SETTINGS, settings: settings })
         log('window.location.reload')
         window.location.reload()
     }

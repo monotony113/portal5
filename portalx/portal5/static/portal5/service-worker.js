@@ -118,7 +118,6 @@ function handleFetchRewriteURL(event) {
             try {
                 represented = new URL(location.pathname.substr(1))
             } catch (e) {
-                console.warn('Cannot parse page location: Location may have been modified')
                 let stored = await localforage.getItem('portal5:client:' + client.id)
                 if (stored) {
                     represented = new URL(stored.represented)
@@ -187,6 +186,5 @@ function handleFetchRewriteURL(event) {
             return fetch(new Request(final.href, requestOpts))
         }
     }
-
     event.respondWith(synthesize())
 }
