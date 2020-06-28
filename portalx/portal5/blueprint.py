@@ -153,7 +153,7 @@ def fetch(url, **kwargs):
     common.copy_headers(remote, response, server_origin=origin)
     common.copy_cookies(remote, response, server_domain=request.host)
     common.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=origin)
-    common.enforce_csp(remote, response, request_origin=g.request_origin, server_origin=origin)
+    common.break_csp(remote, response, server_origin=origin)
     return response
 
 

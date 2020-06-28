@@ -201,11 +201,27 @@ def enforce_cors(remote: requests.Response, response: Response, *, request_origi
     response.headers['Access-Control-Allow-Origin'] = server_origin
 
 
-def enforce_csp(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
+def break_csp(remote: requests.Response, response: Response, *, server_origin) -> None:
+    non_source_directives = {
+        'plugin-types', 'sandbox',
+        'block-all-mixed-content', 'referrer',
+        'require-sri-for', 'require-trusted-types-for',
+        'trusted-types', 'upgrade-insecure-requests'
+    }
+    adverse_directives = {'report-uri', 'report-to'}
+
     csp = remote.headers.get('Content-Security-Policy', None)
     if not csp:
         return
 
     policies = [p.strip().split(' ') for p in csp.split(';')]
-    policies = {p[0]: p[1:] for p in policies}
-    print(policies)
+    policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
+
+    for directive, options in policies.items():
+        if directive in non_source_directives:
+            continue
+        if "'none'" not in options and "'self'" not in options:
+            options.add(server_origin)
+
+    broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
+    response.headers['Content-Security-Policy'] = broken_csp
