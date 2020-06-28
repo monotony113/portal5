@@ -14,42 +14,56 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections.abc import Hashable, Callable
+from functools import wraps
 
 import requests
+from flask import g, Response
+
+from . import common
 
 
-class RequestTest(Hashable):
-    def __init__(self, test: Callable, name=None, description=None):
-        object.__setattr__(self, '_test', test)
-        object.__setattr__(self, 'name', name or test.__name__)
-        self.description = description
-
-    def __setattr__(self, name, value):
-        if name in ('_test', 'name'):
-            raise ValueError(f'Setting immutable attribute "{name}" is not allowed')
-        return object.__setattr__(self, name, value)
-
-    def __call__(self, req: requests.PreparedRequest) -> bool:
-        return self._test(req)
-
-    def __hash__(self):
-        return hash(self.name) ^ hash(self._test)
-
-    def __str__(self):
-        return super().__str__()
-
-    @classmethod
-    def test(cls, name=None, description=None):
-        def wrap(f):
-            return cls(f, name, description)
-
-        return wrap
+def access_control_same_origin(view_func):
+    @wraps(view_func)
+    def postprocess(*args, **kwargs):
+        out = common.ensure_response(view_func(*args, **kwargs))
+        out.headers['Access-Control-Allow-Origin'] = g.server_origin
+        return out
+    return postprocess
 
 
-def setup_filters(app):
-    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
-    tests = set()
-    for kwargs in filter_kwargs:
-        tests.add(RequestTest(**kwargs))
-    app.config['PORTAL_URL_FILTERS'] = tests
+def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
+    allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
+    if not allow_origin or allow_origin == '*':
+        return
+
+    if allow_origin != request_origin:
+        response.headers.pop('Access-Control-Allow-Origin', None)
+        return
+
+    response.headers['Access-Control-Allow-Origin'] = server_origin
+
+
+def break_csp(remote: requests.Response, response: Response, *, server_origin) -> None:
+    non_source_directives = {
+        'plugin-types', 'sandbox',
+        'block-all-mixed-content', 'referrer',
+        'require-sri-for', 'require-trusted-types-for',
+        'trusted-types', 'upgrade-insecure-requests'
+    }
+    adverse_directives = {'report-uri', 'report-to'}
+
+    csp = remote.headers.get('Content-Security-Policy', None)
+    if not csp:
+        return
+
+    policies = [p.strip().split(' ') for p in csp.split(';')]
+    policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
+
+    for directive, options in policies.items():
+        if directive in non_source_directives:
+            continue
+        if "'none'" not in options:
+            options.add(server_origin)
+
+    broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
+    response.headers['Content-Security-Policy'] = broken_csp

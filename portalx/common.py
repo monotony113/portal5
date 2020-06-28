@@ -25,11 +25,12 @@ from flask import current_app, Request, Response, stream_with_context, abort
 from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.exceptions import HTTPException
 
-from . import exception
-from .security import RequestTest
+from . import exceptions
 
 
 def metadata_from_request(g, request: Request, endpoint, values):
+    g.server_origin = f'{request.scheme}://{request.host}'
+
     g.request_headers = Headers(request.headers)
     g.request_params = MultiDict(request.args)
     g.request_cookies = MultiDict(request.cookies)
@@ -64,12 +65,12 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
             requested = f'https:{requested.geturl()}'
             if query:
                 requested = f'{requested}?{query}'
-            return exception.PortalMissingProtocol(requested)
+            return exceptions.PortalMissingProtocol(requested)
         else:
-            return exception.PortalBadRequest(_('Unsupported URL scheme "%(scheme)s"', scheme=requested.scheme))
+            return exceptions.PortalBadRequest(_('Unsupported URL scheme "%(scheme)s"', scheme=requested.scheme))
 
     if not requested.netloc:
-        return exception.PortalBadRequest(_('URL <code>%(url)s</code> missing website domain name or location.', url=requested.geturl()))
+        return exceptions.PortalBadRequest(_('URL <code>%(url)s</code> missing website domain name or location.', url=requested.geturl()))
 
     return None
 
@@ -85,14 +86,13 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
 
         tests = current_app.config.get('PORTAL_URL_FILTERS', set())
         for t in tests:
-            t: RequestTest
             should_abort = False
             try:
                 should_abort = t(outbound)
             except Exception:
                 pass
             if should_abort:
-                abort(exception.PortalSelfProtect(url, t))
+                abort(exceptions.PortalSelfProtect(url, t))
 
         remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
@@ -189,39 +189,10 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
     return cookies
 
 
-def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
-    allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
-    if not allow_origin or allow_origin == '*':
-        return
-
-    if allow_origin != request_origin:
-        response.headers.pop('Access-Control-Allow-Origin', None)
-        return
-
-    response.headers['Access-Control-Allow-Origin'] = server_origin
-
-
-def break_csp(remote: requests.Response, response: Response, *, server_origin) -> None:
-    non_source_directives = {
-        'plugin-types', 'sandbox',
-        'block-all-mixed-content', 'referrer',
-        'require-sri-for', 'require-trusted-types-for',
-        'trusted-types', 'upgrade-insecure-requests'
-    }
-    adverse_directives = {'report-uri', 'report-to'}
-
-    csp = remote.headers.get('Content-Security-Policy', None)
-    if not csp:
-        return
-
-    policies = [p.strip().split(' ') for p in csp.split(';')]
-    policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
-
-    for directive, options in policies.items():
-        if directive in non_source_directives:
-            continue
-        if "'none'" not in options and "'self'" not in options:
-            options.add(server_origin)
-
-    broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
-    response.headers['Content-Security-Policy'] = broken_csp
+def ensure_response(out):
+    if isinstance(out, Response):
+        return out
+    if isinstance(out, tuple):
+        return Response(*out)
+    else:
+        return Response(out)

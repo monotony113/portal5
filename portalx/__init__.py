@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 from flask import Flask, g, request, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import config, security, i18n
+from . import blacklist, config, i18n
 
 load_dotenv()
 
@@ -84,7 +84,7 @@ def create_app(*, override=None) -> Flask:
     setup_jinja(app)
     setup_debug(app)
 
-    security.setup_filters(app)
+    blacklist.setup_filters(app)
     i18n.setup_languages(app)
 
     return app

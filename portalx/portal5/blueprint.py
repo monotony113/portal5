@@ -14,11 +14,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+# TODO: settings for rewrites, cookies (httponly), cors, csp, iframe
+
 from urllib.parse import SplitResult, urlsplit, urljoin
 
 from flask import Blueprint, Request, Response, request, current_app, g, render_template, abort, redirect
 
-from .. import common
+from .. import common, security
 
 APPNAME = 'portal5'
 request: Request
@@ -33,16 +35,19 @@ WORKER_VERSION = 2
 
 @portal5.route('/')
 @portal5.route('/index.html')
+@security.access_control_same_origin
 def home():
     return render_template(f'{APPNAME}/index.html')
 
 
 @portal5.route('/install-worker.js')
+@security.access_control_same_origin
 def index_js():
     return portal5.send_static_file(f'{APPNAME}/install-worker.js')
 
 
 @portal5.route('/service-worker.js')
+@security.access_control_same_origin
 def service_worker():
     if g.request_headers.get('Service-Worker') != 'script':
         return abort(403)
@@ -55,18 +60,19 @@ def service_worker():
     passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
     passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
 
-    worker = Response(render_template(
-        f'{APPNAME}/service-worker.js',
-        settings=dict(
-            version=WORKER_VERSION,
-            protocol=request.scheme,
-            host=request.host,
-            passthru=dict(
-                domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
-                urls={k: True for k in passthru_urls}
-            )
+    worker_settings = dict(
+        version=WORKER_VERSION,
+        protocol=request.scheme,
+        host=request.host,
+        passthru=dict(
+            domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
+            urls={k: True for k in passthru_urls}
         )
-    ), headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript')
+    )
+    worker = Response(
+        render_template(f'{APPNAME}/service-worker.js', settings=worker_settings),
+        headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript'
+    )
     return worker
 
 
@@ -148,12 +154,11 @@ def install_worker(url):
 
 
 def fetch(url, **kwargs):
-    origin = f'{request.scheme}://{request.host}'
     remote, response = common.pipe_request(url, method=request.method, **kwargs)
-    common.copy_headers(remote, response, server_origin=origin)
+    common.copy_headers(remote, response, server_origin=g.server_origin)
     common.copy_cookies(remote, response, server_domain=request.host)
-    common.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=origin)
-    common.break_csp(remote, response, server_origin=origin)
+    security.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=g.server_origin)
+    security.break_csp(remote, response, server_origin=g.server_origin)
     return response
 
 

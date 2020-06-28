@@ -31,9 +31,6 @@ def home():
     return render_template(f'{APPNAME}/index.html')
 
 
-(lambda: home())
-
-
 @portal3.url_value_preprocessor
 def collect_data_from_request(endpoint, values: dict):
     common.metadata_from_request(g, request, endpoint, values)
@@ -46,7 +43,7 @@ def collect_data_from_request(endpoint, values: dict):
         g.referred_by = g.request_cookies.get(f'{APPNAME}-remote-referrer')
         g.referred_by = g.referred_by and urlsplit(g.referred_by)
         if g.base_scheme and g.request_referrer and not g.referred_by:
-            referrer = request.referrer[len(f'{request.scheme}://{request.host}'):]
+            referrer = request.referrer[len(g.server_origin):]
             g.referred_by = urlsplit(referrer)
 
 
@@ -90,7 +87,7 @@ def forward(requested):
 
         remote, response = common.pipe_request(url, method=request.method, **kwargs)
 
-        common.copy_headers(remote, response, server_origin=f'{request.scheme}://{request.host}')
+        common.copy_headers(remote, response, server_origin=g.server_origin)
         common.copy_cookies(remote, response, server_domain=request.host)
 
         if not g.direct_request:
