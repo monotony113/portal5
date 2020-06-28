@@ -199,3 +199,13 @@ def enforce_cors(remote: requests.Response, response: Response, *, request_origi
         return
 
     response.headers['Access-Control-Allow-Origin'] = server_origin
+
+
+def enforce_csp(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
+    csp = remote.headers.get('Content-Security-Policy', None)
+    if not csp:
+        return
+
+    policies = [p.strip().split(' ') for p in csp.split(';')]
+    policies = {p[0]: p[1:] for p in policies}
+    print(policies)

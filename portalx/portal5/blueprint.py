@@ -16,8 +16,7 @@
 
 from urllib.parse import SplitResult, urlsplit, urljoin
 
-from flask import Blueprint, Request, render_template, g, abort, redirect, current_app
-from flask import request
+from flask import Blueprint, Request, Response, request, current_app, g, render_template, abort, redirect
 
 from .. import common
 
@@ -38,28 +37,37 @@ def home():
     return render_template(f'{APPNAME}/index.html')
 
 
-@portal5.route('/install.js')
+@portal5.route('/install-worker.js')
 def index_js():
-    return portal5.send_static_file(f'{APPNAME}/install.js')
-
-
-@portal5.route('/localforage.min.js')
-def localforage():
-    return portal5.send_static_file(f'{APPNAME}/localforage.min.js')
+    return portal5.send_static_file(f'{APPNAME}/install-worker.js')
 
 
 @portal5.route('/service-worker.js')
 def service_worker():
     if g.request_headers.get('Service-Worker') != 'script':
         return abort(403)
-    worker = portal5.send_static_file(f'{APPNAME}/service-worker.js')
-    worker.headers['Service-Worker-Allowed'] = '/'
+
+    service_domains = {
+        f'{rule.subdomain}.{g.sld}'
+        for rule in current_app.url_map.iter_rules()
+        if rule.subdomain
+    }
+    passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
+    passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
+
+    worker = Response(render_template(
+        f'{APPNAME}/service-worker.js',
+        settings=dict(
+            version=WORKER_VERSION,
+            protocol=request.scheme,
+            host=request.host,
+            passthru=dict(
+                domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
+                urls={k: True for k in passthru_urls}
+            )
+        )
+    ), headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript')
     return worker
-
-
-@portal5.route('/service-worker-reinstall')
-def service_worker_reinstall():
-    return render_template(f'{APPNAME}/worker-reinstall.html')
 
 
 @portal5.url_value_preprocessor
@@ -96,41 +104,6 @@ def preprocess(endpoint, values):
         )
 
 
-def install_worker(url):
-    service_domains = {
-        f'{rule.subdomain}.{g.sld}'
-        for rule in current_app.url_map.iter_rules()
-        if rule.subdomain
-    }
-    passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
-    passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
-
-    return render_template(
-        f'{APPNAME}/worker-install.html',
-        remote=url,
-        browser_additional='MicroMessenger' in request.user_agent.string,
-        worker_settings=dict(
-            version=WORKER_VERSION,
-            protocol=request.scheme,
-            host=request.host,
-            passthru=dict(
-                domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
-                urls={k: True for k in passthru_urls}
-            )
-        )
-    )
-
-
-def fetch(url, **kwargs):
-    origin = f'{request.scheme}://{request.host}'
-    remote, response = common.pipe_request(url, method=request.method, **kwargs)
-    common.copy_headers(remote, response, server_origin=origin)
-    common.copy_cookies(remote, response, server_domain=request.host)
-    common.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=origin)
-    common.enforce_csp(remote, response, request_origin=g.request_origin, server_origin=origin)
-    return response
-
-
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def forward(requested):
     urlsplit_requested = g.urlsplit_requested
@@ -164,3 +137,26 @@ def forward(requested):
             return install_worker(url)
         else:
             return fetch(url, **requests_kwargs)
+
+
+def install_worker(url):
+    return render_template(
+        f'{APPNAME}/worker-install.html',
+        remote=url,
+        browser_additional='MicroMessenger' in request.user_agent.string,
+    )
+
+
+def fetch(url, **kwargs):
+    origin = f'{request.scheme}://{request.host}'
+    remote, response = common.pipe_request(url, method=request.method, **kwargs)
+    common.copy_headers(remote, response, server_origin=origin)
+    common.copy_cookies(remote, response, server_domain=request.host)
+    common.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=origin)
+    common.enforce_csp(remote, response, request_origin=g.request_origin, server_origin=origin)
+    return response
+
+
+@portal5.route('/service-worker-reinstall')
+def service_worker_reinstall():
+    return render_template(f'{APPNAME}/worker-reinstall.html')

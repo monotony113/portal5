@@ -15,36 +15,39 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /* eslint-env serviceworker */
-/* globals localforage */
 
-importScripts('localforage.min.js')
+self.settings = JSON.parse('{{ settings|tojson }}')
 
-const K_SETTINGS = 'portal5:worker:settings'
+class ClientRecordContainer {
+    constructor() {
+        setInterval(this.trim, 300000)
+    }
+    add(id, url) {
+        this['client:' + id] = { represented: url, atime: Date.now() }
+    }
+    get(id) {
+        return this['client:' + id]
+    }
+    remove(id) {
+        delete this['client:' + id]
+    }
+    async trim() {
+        await Promise.all(
+            Object.keys(this)
+                .filter((k) => k.substr(0, 7) == 'client:')
+                .map(async (k) => [k, await clients.get(k.substr(7))])
+        ).then((r) => r.filter((r) => !r[1]).forEach((r) => delete this[r[0]]))
+    }
+}
 
-self.settings = null
-self.CLIENT_RECORD_LIMIT = 100
-
-localforage.config({ name: 'portal5' })
+self.clientRecords = new ClientRecordContainer()
 
 self.addEventListener('install', (event) => {
-    var init = async () => {
-        let cache = await caches.open('default')
-        await cache.delete('/service-worker-reinstall')
-        await cache.add('/service-worker-reinstall')
-        return skipWaiting()
-    }
-    event.waitUntil(init())
+    event.waitUntil(skipWaiting())
 })
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim())
-})
-
-self.addEventListener('message', (event) => {
-    if (event.data.msg == K_SETTINGS) {
-        self.settings = event.data.settings
-        localforage.setItem('portal5:worker:settings', event.data.settings)
-    }
 })
 
 self.addEventListener('fetch', handleFetchRewriteURL)
@@ -53,6 +56,11 @@ function handleFetchRewriteURL(event) {
     var synthesize = async () => {
         /** @type {Request} */
         let request = event.request
+        /** @type {ClientRecordContainer} */
+        let clientRecords = self.clientRecords
+
+        var settings = self.settings
+        let server = settings.protocol + '://' + settings.host
 
         // URLs parsed from different sources that will be used to synthesize the final URL for network request
         /**
@@ -83,31 +91,9 @@ function handleFetchRewriteURL(event) {
          */
         let synthesized = new URL('http://example.org')
 
-        var settings = self.settings
-        if (!self.settings) {
-            settings = await localforage.getItem('portal5:worker:settings')
-            // eslint-disable-next-line require-atomic-updates
-            self.settings = settings
-        }
-        if (!self.settings) return await caches.match('/service-worker-reinstall')
-
-        let server = settings.protocol + '://' + settings.host
-
         let headers = new Headers()
         request.headers.forEach((v, k) => headers.append(k, v))
         headers.set('X-Portal5-Worker-Version', settings.version.toString())
-
-        let requestOpts = {
-            method: request.method,
-            headers: headers,
-            credentials: request.credentials,
-            cache: request.cache,
-            redirect: request.redirect,
-            integrity: request.integrity,
-            referrer: '',
-            referrerPolicy: request.referrerPolicy,
-            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
-        }
 
         var client = await clients.get(event.clientId || event.replacesClientId)
         if (!client && 'clients' in self && 'matchAll' in clients) {
@@ -121,7 +107,7 @@ function handleFetchRewriteURL(event) {
             try {
                 represented = new URL(location.pathname.substr(1))
             } catch (e) {
-                let stored = await localforage.getItem('portal5:client:' + client.id)
+                let stored = clientRecords.get(client.id)
                 if (stored) {
                     represented = new URL(stored.represented)
                     represented.pathname = location.pathname
@@ -133,9 +119,7 @@ function handleFetchRewriteURL(event) {
             }
         }
 
-        if (represented)
-            localforage.setItem('portal5:client:' + client.id, { represented: represented.href, atime: Date.now() })
-        trimClientRecords()
+        if (represented) clientRecords.add(client.id, represented.href)
 
         if (request.referrer) {
             let referrerURL = new URL(request.referrer)
@@ -176,6 +160,18 @@ function handleFetchRewriteURL(event) {
         if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
             return fetch(request.clone())
 
+        let requestOpts = {
+            method: request.method,
+            headers: headers,
+            credentials: request.credentials,
+            cache: request.cache,
+            redirect: request.redirect,
+            integrity: request.integrity,
+            referrer: '',
+            referrerPolicy: request.referrerPolicy,
+            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
+        }
+
         let body = await request.blob()
         if (body.size > 0) requestOpts.body = body
 
@@ -210,10 +206,10 @@ function handleFetchRewriteURL(event) {
             }
         }
 
-        headers.set('X-Portal5-Origin', referrer.origin)
+        if (referrer) headers.set('X-Portal5-Origin', referrer.origin)
         headers.set('X-Portal5-Mode', request.mode)
 
-        let final = new URL(settings.protocol + '://' + settings.host + '/' + synthesized.href)
+        let final = new URL(server + '/' + synthesized.href)
         if (final.href != requested.href) {
             let redirect = new Response('', { status: 307, headers: { Location: final.href } })
             return redirect
@@ -222,23 +218,4 @@ function handleFetchRewriteURL(event) {
         }
     }
     event.respondWith(synthesize())
-}
-
-async function trimClientRecords() {
-    let limit = self.CLIENT_RECORD_LIMIT
-    let length = await localforage.length()
-    if (length > limit) {
-        let keys = await localforage.keys()
-        let staleRecords = (await Promise.all(keys.map(async (k) => [k, (await localforage.getItem(k)).atime])))
-            .filter((t) => t[1] != undefined)
-            .sort((l, r) => r[1] - l[1])
-            .slice(limit)
-        await Promise.all(
-            staleRecords.map(async (t) => {
-                console.log(t[0].slice(15))
-                let client = await clients.get(t[0].slice(15))
-                if (!client) await localforage.removeItem(t[0])
-            })
-        )
-    }
 }

@@ -16,8 +16,7 @@
 
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from flask import Blueprint, Request, render_template, redirect, g, abort
-from flask import request
+from flask import Blueprint, Request, request, g, render_template, redirect, abort
 
 from .. import common
 

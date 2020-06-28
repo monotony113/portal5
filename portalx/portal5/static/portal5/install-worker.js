@@ -14,12 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/* global settings */
-
 var output = null
 var domDeferred = []
-
-const K_SETTINGS = 'portal5:worker:settings'
 
 function log(msg, fd) {
     if (!fd) fd = console.log
@@ -32,9 +28,6 @@ function log(msg, fd) {
 async function initServiceWorker() {
     const waitAndReload = async () => {
         log('await navigator.serviceWorker.ready')
-        let registration = await navigator.serviceWorker.ready
-        log('serviceWorker.settings')
-        registration.active.postMessage({ msg: K_SETTINGS, settings: settings })
         log('window.location.reload')
         window.location.reload()
     }

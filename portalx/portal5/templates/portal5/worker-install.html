@@ -13,10 +13,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script async src="/install.js"></script>
-<script>
-    const settings = JSON.parse('{{ worker_settings|tojson }}');
-</script>
+<script async src="/install-worker.js"></script>
 {% endblock %}
 
 {% set use_portal3 %}
