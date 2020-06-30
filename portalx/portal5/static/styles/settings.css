@@ -1,0 +1,86 @@
+h5 {
+    margin: 0;
+    display: flex;
+    margin: 0 5pt 0;
+}
+
+button {
+    border: none;
+    margin: 0;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    cursor: pointer;
+    height: 1.4rem;
+    width: 3rem;
+    font-size: 12pt;
+}
+
+label {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.option {
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 1rem 0 0 0;
+}
+
+.option-row {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+
+.option-description {
+    margin: 0 0 0 1.5rem;
+}
+
+.option-bullet {
+    display: inline-block;
+    margin: 0 5pt auto 0;
+}
+
+.rotate-90d {
+    transform: rotate(90deg);
+}
+
+.collapsed {
+    display: none;
+}
+
+.form-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin: 2rem 0 0.5rem 0;
+}
+
+.form-footer button {
+    width: initial;
+    height: 2rem;
+    font-size: 16pt;
+}
+
+.form-footer p {
+    margin: 0 1rem 0 0;
+}
+
+.form-postscript {
+    display: flex;
+    align-items: flex-end;
+    flex-flow: column;
+}
+
+.form-postscript * {
+    width: max-content;
+}
+
+.form-postscript h6 {
+    margin: 0.5rem 0;
+    text-align: end;
+}

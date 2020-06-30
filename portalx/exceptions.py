@@ -44,7 +44,7 @@ class PortalMissingProtocol(PortalBadRequest):
         self.requested = requested
 
     def get_response(self, environ=None):
-        return Response(render_template('portal3/missing-protocol.html', remote=self.requested), self.code)
+        return Response(render_template('missing-protocol.html', remote=self.requested), self.code)
 
 
 class PortalSelfProtect(PortalHTTPException):

@@ -210,12 +210,13 @@ function handleFetchRewriteURL(event) {
         headers.set('X-Portal5-Mode', request.mode)
 
         let final = new URL(server + '/' + synthesized.href)
+
         if (final.href != requested.href) {
             let redirect = new Response('', { status: 307, headers: { Location: final.href } })
             return redirect
-        } else {
-            return fetch(new Request(final.href, requestOpts))
         }
+
+        return fetch(new Request(final.href, requestOpts))
     }
     event.respondWith(synthesize())
 }

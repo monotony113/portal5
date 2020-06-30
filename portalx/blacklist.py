@@ -26,7 +26,7 @@ class RequestTest(Hashable):
         self.description = description
 
     def __setattr__(self, name, value):
-        if name in ('_test', 'name'):
+        if name in {'_test', 'name'}:
             raise ValueError(f'Setting immutable attribute "{name}" is not allowed')
         return object.__setattr__(self, name, value)
 

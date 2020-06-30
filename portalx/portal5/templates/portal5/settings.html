@@ -1,0 +1,85 @@
+{% extends 'portal5/components/portal5.html' %}
+
+{% set title = 'portal5:settings' %}
+
+{% block styles %}
+{{ super() }}
+<link href="/static/styles/settings.css" rel="stylesheet">
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.addEventListener('load', () => {
+        document.querySelectorAll('label').forEach((l) => {
+            l.addEventListener('click', (ev) => {
+                const label = ev.target
+                const option = label.closest('.option-row')
+                const description = option.querySelector('.option-description')
+                description.classList.toggle('collapsed')
+                option.querySelector('.option-bullet').classList.toggle('rotate-90d')
+            })
+        })
+        document.querySelectorAll('.toggle-button').forEach((btn) => {
+            btn.addEventListener('click', (ev) => {
+                const button = ev.target
+                const option = button.closest('.option-row')
+                const input = option.querySelector('input')
+                let value = input.value ^ 1
+                if (value) {
+                    button.classList.replace('color-gray-bg', `color-${button.dataset.color}-bg`)
+                } else {
+                    button.classList.replace(`color-${button.dataset.color}-bg`, 'color-gray-bg')
+                }
+                button.textContent = value ? 'on' : 'off'
+                input.value = value
+            })
+        })
+    });
+</script>
+{% if updated %}
+<script>
+    window.addEventListener('load', () => history.replaceState("", "", "/settings"));
+</script>
+{% endif %}
+{% endblock %}
+
+{% block main %}
+
+<form action="/settings" method="POST">
+
+    {% for section_name, options in settings.items() %}
+    <h2>{{ section_name }}</h2>
+
+    {% for option_id, details in options.items() %}
+    {% set color = details.color|default('green') %}
+
+    <div id="{{ option_id|replace('_', '-') }}" class="option-row">
+        <div class="option">
+            <input type="hidden" name="{{ option_id }}" value="{{ details.enabled|int }}" />
+            <h5><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
+            <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg" data-color="{{ color }}">
+                {{- 'on' if details.enabled else 'off' -}}
+            </button>
+        </div>
+        <div class="option-description collapsed">
+            <p>{{ details.desc|safe }}</p>
+        </div>
+    </div>
+
+    {% endfor %}
+    {% endfor %}
+
+    <div class="form-footer">
+        {% if updated %}
+        <p class="color-green-fg">Your preferences have been updated.</p>
+        {% endif %}
+        <button type="submit" name="action" value="update" class="color-cyan-bg">Save settings</button>
+    </div>
+    <div class="form-postscript">
+        <button type="submit" name="action" value="reset" class="color-gray-bg">Reset defaults</button>
+        <h6>Your preferences are saved using cookies.<br> They remain effective until you clear the data for this site.</h6>
+    </div>
+
+</form>
+
+{% endblock %}

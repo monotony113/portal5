@@ -66,6 +66,7 @@ def setup_jinja(app: Flask):
     app.jinja_env.trim_blocks = True
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.strip_trailing_newlines = False
+    app.jinja_env.add_extension('jinja2.ext.i18n')
 
 
 def create_app(*, override=None) -> Flask:

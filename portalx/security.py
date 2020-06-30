@@ -31,6 +31,17 @@ def access_control_same_origin(view_func):
     return postprocess
 
 
+def access_control_allow_origin(origin):
+    def wrapper(view_func):
+        @wraps(view_func)
+        def postprocess(*args, **kwargs):
+            out = common.ensure_response(view_func(*args, **kwargs))
+            out.headers['Access-Control-Allow-Origin'] = origin
+            return out
+        return postprocess
+    return wrapper
+
+
 def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
     if not allow_origin or allow_origin == '*':

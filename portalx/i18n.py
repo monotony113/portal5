@@ -23,4 +23,11 @@ def setup_languages(app: Flask):
 
     @babel.localeselector
     def get_locale():
-        return (request.args.get('lang', None) or request.accept_languages.best_match(app.config['LANGUAGES'])).replace('-', '_')
+        lang = (
+            request.args.get('lang', None)
+            or request.accept_languages.best_match(app.config['LANGUAGES'])
+        )
+        if lang:
+            return lang.replace('-', '_')
+        else:
+            return None

@@ -59,7 +59,7 @@ def normalize_url(url) -> SplitResult:
 
 
 def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
-    if requested.scheme not in ('http', 'https'):
+    if requested.scheme not in {'http', 'https'}:
         if not requested.scheme:
             query = flask_request.query_string.decode("utf8")
             requested = f'https:{requested.geturl()}'
@@ -73,6 +73,14 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
         return exceptions.PortalBadRequest(_('URL <code>%(url)s</code> missing website domain name or location.', url=requested.geturl()))
 
     return None
+
+
+def _pipe(response: requests.Response):
+    while True:
+        chunk = response.raw.read(1024)
+        if not chunk:
+            break
+        yield chunk
 
 
 def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Response, Response]:
@@ -96,15 +104,8 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
 
         remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
-        def pipe(response: requests.Response):
-            while True:
-                chunk = response.raw.read(1024)
-                if not chunk:
-                    break
-                yield chunk
-
         flask_response = Response(
-            stream_with_context(pipe(remote_response)),
+            stream_with_context(_pipe(remote_response)),
             status=remote_response.status_code,
         )
         return remote_response, flask_response
@@ -172,7 +173,7 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
         cookie_main = get_cookie_main(cookie)
         cookie_is_secure = get_cookie_secure(cookie)
         _rest = get_cookie_rest(cookie)
-        cookie_domain = server_domain if cookie.domain_specified and server_domain not in ('localhost', '127.0.0.1') else None
+        cookie_domain = server_domain if cookie.domain_specified and server_domain not in {'localhost', '127.0.0.1'} else None
         cookie_path = f'{remote_url.scheme}://{remote_url.netloc}{cookie.path}'.rstrip('/') if cookie.path_specified else None
         cookie_rest = ('HttpOnly' in _rest, _rest.get('SameSite', None))
         cookies.append({

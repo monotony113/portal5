@@ -1,4 +1,4 @@
-# portal5.py
+# blueprint.py
 # Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@ from urllib.parse import SplitResult, urlsplit, urljoin
 
 from flask import Blueprint, Request, Response, request, current_app, g, render_template, abort, redirect
 
+from . import features
 from .. import common, security
 
 APPNAME = 'portal5'
@@ -35,15 +36,15 @@ WORKER_VERSION = 2
 
 @portal5.route('/')
 @portal5.route('/index.html')
-@security.access_control_same_origin
+@security.access_control_allow_origin('*')
 def home():
     return render_template(f'{APPNAME}/index.html')
 
 
-@portal5.route('/install-worker.js')
+@portal5.route('/favicon.ico')
 @security.access_control_same_origin
 def index_js():
-    return portal5.send_static_file(f'{APPNAME}/install-worker.js')
+    return portal5.send_static_file('favicon.ico')
 
 
 @portal5.route('/service-worker.js')
@@ -70,10 +71,39 @@ def service_worker():
         )
     )
     worker = Response(
-        render_template(f'{APPNAME}/service-worker.js', settings=worker_settings),
+        render_template(f'{APPNAME}/scripts/service-worker.js', settings=worker_settings),
         headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript'
     )
     return worker
+
+
+@portal5.route('/settings', methods=('GET', 'POST'))
+@security.access_control_same_origin
+def settings():
+    if request.method == 'POST':
+        settings = dict(**request.form)
+        if settings.pop('action') == 'reset':
+            g.settings = features.FEATURES_DEFAULTS
+        else:
+            g.settings = {k: bool(int(v)) for k, v in settings.items()}
+
+    settings = dict()
+    for k, v in g.settings.items():
+        option = dict()
+        option['enabled'] = v
+        option.update({k_: v % {'server_origin': g.server_origin} for k_, v in features.FEATURES_HUMAN_READABLE[k].items()})
+        section = settings.setdefault(k.split('_')[0], dict())
+        section[k] = option
+
+    res = Response(render_template('portal5/settings.html', settings=settings, updated=request.method == 'POST'))
+    if request.method == 'POST':
+        res.set_cookie(
+            'portal5_settings', str(features.make_cookie(g.settings)),
+            path='/', domain=request.host,
+            secure=True, httponly=True
+        )
+
+    return res
 
 
 @portal5.url_value_preprocessor
@@ -87,6 +117,9 @@ def preprocess(endpoint, values):
     except (TypeError, ValueError):
         g.request_worker_ver = None
 
+    settings = g.request_cookies.pop('portal5_settings', None)
+    g.settings = features.read_cookie(settings) if settings is not None else features.FEATURES_DEFAULTS
+
     referrer = headers.pop('X-Portal5-Referrer', None)
     if referrer:
         headers['Referer'] = referrer
@@ -94,7 +127,7 @@ def preprocess(endpoint, values):
     headers.pop('Origin', None)
     origin = headers.pop('X-Portal5-Origin', None)
     fetch_mode = headers.pop('X-Portal5-Mode', None)
-    if origin and (fetch_mode == 'cors' or request.method not in ('GET', 'HEAD')):
+    if origin and (fetch_mode == 'cors' or request.method not in {'GET', 'HEAD'}):
         headers['Origin'] = origin
     g.request_origin = origin
 
@@ -160,8 +193,3 @@ def fetch(url, **kwargs):
     security.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=g.server_origin)
     security.break_csp(remote, response, server_origin=g.server_origin)
     return response
-
-
-@portal5.route('/service-worker-reinstall')
-def service_worker_reinstall():
-    return render_template(f'{APPNAME}/worker-reinstall.html')

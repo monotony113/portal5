@@ -1,4 +1,4 @@
-{% extends 'components/html.html' %}
+{% extends 'portal5/components/portal5.html' %}
 
 {% set use_portal3 %}
 <li>
@@ -8,28 +8,14 @@
 </li>
 {% endset %}
 
-{% block body %}
-<main>
-    <article>
-        <h1><code>portal5</code></h1>
-        {% block static_messages %}
-        {% endblock %}
+{% block main %}
+{% block static_messages %}
+{% endblock static_messages %}
+<blockquote>
+    <pre><code id="console"></code></pre>
+</blockquote>
+{% endblock main %}
 
-        <noscript>
-            <div id="worker-noscript">
-                <h3><strong>{{_('JavaScript is not enabled')}}</strong></h3>
-                <p><code>portal5</code> {{_('requires')}} <strong>JavaScript</strong> {{_('to work.')}}</p>
-            </div>
-            <p>{{_('You may:')}}</p>
-            <ul>
-                <li>{{_('Enable JavaScript in your browser, or switch to a newer browser.')}}</li>
-                {{ use_portal3 }}
-            </ul>            
-        </noscript>
-
-        <blockquote>
-            <pre><code id="console"></code></pre>
-        </blockquote>
-    </article>
-</main>
+{% block additional_noscript %}
+{{ use_portal3 }}
 {% endblock %}

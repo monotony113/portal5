@@ -60,7 +60,7 @@ def forward(requested):
 
     if (
         not g.direct_request
-        and (not g.request_fetch_mode or g.request_fetch_mode not in ('navigate', 'nested-navigate'))
+        and (not g.request_fetch_mode or g.request_fetch_mode not in {'navigate', 'nested-navigate'})
         and g.referred_by and g.referred_by.scheme and g.referred_by.netloc
         and urlsplit_requested.netloc != g.base_domain
     ):

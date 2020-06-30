@@ -1,0 +1,25 @@
+{% extends 'components/html.html' %}
+
+{% set title = title|default('portal5') %}
+
+{% block body %}
+<main>
+    <article>
+        <h1><code>{{ title }}</code></h1>
+        <noscript>
+            <div id="worker-noscript">
+                <h3><strong>{{_('JavaScript is not enabled')}}</strong></h3>
+                <p><code>portal5</code> {{_('requires')}} <strong>JavaScript</strong> {{_('to work.')}}</p>
+            </div>
+            <p>{{_('You may:')}}</p>
+            <ul>
+                <li>{{_('Enable JavaScript in your browser, or switch to a newer browser.')}}</li>
+                {% block additional_noscript %}
+                {% endblock %}
+            </ul>            
+        </noscript>
+        {% block main %}
+        {% endblock %}
+    </article>
+</main>
+{% endblock %}
