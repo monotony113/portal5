@@ -16,6 +16,15 @@
 
 /* eslint-env serviceworker */
 
+self.DESTINATION_307 = {
+    document: true,
+    embed: true,
+    object: true,
+    script: true,
+    style: true,
+    worker: true,
+}
+
 self.settings = JSON.parse('{{ settings|tojson }}')
 
 class ClientRecordContainer {
@@ -211,7 +220,7 @@ function handleFetchRewriteURL(event) {
 
         let final = new URL(server + '/' + synthesized.href)
 
-        if (final.href != requested.href) {
+        if (final.href != requested.href && request.destination in self.DESTINATION_307) {
             let redirect = new Response('', { status: 307, headers: { Location: final.href } })
             return redirect
         }

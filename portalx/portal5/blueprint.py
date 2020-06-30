@@ -172,6 +172,8 @@ def forward(requested):
 
     else:
         head, _ = common.pipe_request(url, method='HEAD', **requests_kwargs)
+        if head.status_code == 405:
+            head, _ = common.pipe_request(url, **requests_kwargs)
         if 'text/html' in head.headers.get('Content-Type', ''):
             return install_worker(url)
         else:

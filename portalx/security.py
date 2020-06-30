@@ -63,18 +63,19 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin) -
     }
     adverse_directives = {'report-uri', 'report-to'}
 
-    csp = remote.headers.get('Content-Security-Policy', None)
-    if not csp:
-        return
-
-    policies = [p.strip().split(' ') for p in csp.split(';')]
-    policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
-
-    for directive, options in policies.items():
-        if directive in non_source_directives:
+    for header in {'Content-Security-Policy', 'Content-Security-Policy-Report-Only'}:
+        csp = remote.headers.get(header, None)
+        if not csp:
             continue
-        if "'none'" not in options:
-            options.add(server_origin)
 
-    broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
-    response.headers['Content-Security-Policy'] = broken_csp
+        policies = [p.strip().split(' ') for p in csp.split(';')]
+        policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
+
+        for directive, options in policies.items():
+            if directive in non_source_directives:
+                continue
+            if "'none'" not in options:
+                options.add(server_origin)
+
+        broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
+        response.headers[header] = broken_csp
