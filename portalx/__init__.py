@@ -52,7 +52,9 @@ def setup_urls(app: Flask):
 
     @app.url_value_preprocessor
     def derive_server_info(endpoint, values):
+        g.server_origin = f'{request.scheme}://{request.host}'
         g.sld = '.'.join(request.host.split('.')[-2:])
+        g.filters = app.config.get('PORTAL_URL_FILTERS', set())
 
 
 def setup_debug(app: Flask):

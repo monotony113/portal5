@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit, unquote
 
-from flask import Blueprint, Request, request, g, render_template, redirect, abort
+from flask import Blueprint, Request, current_app, request, g, render_template, redirect, abort
 
 from .. import common
 
@@ -32,72 +32,79 @@ def home():
 
 
 @portal3.url_value_preprocessor
-def collect_data_from_request(endpoint, values: dict):
-    common.metadata_from_request(g, request, endpoint, values)
-
+def parse_url(endpoint, values):
     if 'requested' in values:
-        g.direct_request = g.request_cookies.get(f'{APPNAME}-remote-redirect', False)
-
-        g.base_scheme = g.request_cookies.get(f'{APPNAME}-remote-scheme')
-        g.base_domain = g.request_cookies.get(f'{APPNAME}-remote-domain')
-        g.referred_by = g.request_cookies.get(f'{APPNAME}-remote-referrer')
-        g.referred_by = g.referred_by and urlsplit(g.referred_by)
-        if g.base_scheme and g.request_referrer and not g.referred_by:
-            referrer = request.referrer[len(g.server_origin):]
-            g.referred_by = urlsplit(referrer)
-
-
-@portal3.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
-def forward_direct(requested):
-    g.direct_request = True
-    g.prefix = '/direct/'
-    return forward(requested)
+        values['requested'] = common.normalize_url(unquote(values['requested']))
 
 
 @portal3.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
-def forward(requested):
-    urlsplit_requested = g.urlsplit_requested
+@portal3.route('/direct/<path:requested>', defaults={'direct_request': True}, methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD'))
+def forward(requested, direct_request=False):
+    url_ = requested
+
+    fetch_mode = request.headers.get('Sec-Fetch-Mode', None)
+    referrer = urlsplit(request.referrer) if request.referrer else None
+
+    direct_request = direct_request or request.cookies.get(f'{APPNAME}-remote-redirect', False)
+
+    base_scheme = request.cookies.get(f'{APPNAME}-remote-scheme')
+    base_domain = request.cookies.get(f'{APPNAME}-remote-domain')
+    referred_by = request.cookies.get(f'{APPNAME}-remote-referrer')
+    referred_by = referred_by and urlsplit(referred_by)
+    if base_scheme and referrer and not referred_by:
+        referrer = request.referrer[len(g.server_origin):]
+        referred_by = urlsplit(referrer)
 
     if (
-        not g.direct_request
-        and (not g.request_fetch_mode or g.request_fetch_mode not in {'navigate', 'nested-navigate'})
-        and g.referred_by and g.referred_by.scheme and g.referred_by.netloc
-        and urlsplit_requested.netloc != g.base_domain
+        not direct_request
+        and (not fetch_mode or fetch_mode not in {'navigate', 'nested-navigate'})
+        and referred_by and referred_by.scheme and referred_by.netloc
+        and url_.netloc != base_domain
     ):
-        urlsplit_base = urlsplit(urljoin(g.referred_by.geturl(), '.'))
-        subpath = f'{g.urlsplit_requested.netloc}/{g.urlsplit_requested.path}'.strip('/')
-        urlsplit_requested = urlsplit(urljoin(urlsplit_base.geturl(), subpath))
+        urlsplit_base = urlsplit(urljoin(referred_by.geturl(), '.'))
+        subpath = f'{url_.netloc}/{url_.path}'.strip('/')
+        url_ = urlsplit(urljoin(urlsplit_base.geturl(), subpath))
 
-    if not urlsplit_requested.scheme and g.base_scheme:
-        path = f'/{g.base_scheme}://{g.base_domain}{urlsplit(request.url).path}'
+    if not url_.scheme and base_scheme:
+        path = f'/{base_scheme}://{base_domain}{urlsplit(request.url).path}'
         if request.args:
             path = f'{path}?{request.query_string.decode("utf8")}'
         res = redirect(path, 307)
         set_cookies(res, path=path, redirect='true', max_age=30)
         return res
 
-    guard = common.guard_incoming_url(g, urlsplit_requested, request)
+    guard = common.guard_incoming_url(g, url_, request)
     if guard:
         abort(guard)
 
-    if g.urlsplit_requested == urlsplit_requested:
+    if url_ == requested:
+        url = url_.geturl()
+        kwargs = dict(data=common.stream_request_body(request), **common.extract_request_info(request))
 
-        url = urlsplit_requested.geturl()
-        kwargs = dict(**g.request_metadata, data=g.request_payload)
+        headers = kwargs['headers']
+        headers.pop('Referer', None)
+        headers.pop('Host', None)
 
-        remote, response = common.pipe_request(url, method=request.method, **kwargs)
+        outbound_request = common.prepare_request(url, method=request.method, **kwargs)
+
+        filters = current_app.config.get('PORTAL_URL_FILTERS')
+        should_abort = filters.test(outbound_request)
+        if should_abort:
+            abort(should_abort)
+
+        remote, response = common.pipe_request(outbound_request)
 
         common.copy_headers(remote, response, server_origin=g.server_origin)
         common.copy_cookies(remote, response, server_domain=request.host)
 
-        if not g.direct_request:
-            set_cookies(response, scheme=urlsplit_requested.scheme, domain=urlsplit_requested.netloc, max_age=1800)
-            set_cookies(response, path=f'{urljoin(url, ".")}', referrer=urlsplit_requested.geturl(), max_age=1800)
+        if not direct_request:
+            set_cookies(response, scheme=url_.scheme, domain=url_.netloc, max_age=1800)
+            set_cookies(response, path=f'{urljoin(url, ".")}', referrer=url_.geturl(), max_age=1800)
 
         return response
 
     return redirect(urlunsplit(tuple([
-        *urlsplit(f'{request.scheme}://{request.host}/{urlsplit_requested.geturl()}')[:3],
+        *urlsplit(f'{request.scheme}://{request.host}/{url_.geturl()}')[:3],
         request.query_string.decode('utf8'), ''
     ])), 307)
 

@@ -15,9 +15,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import wraps
+from typing import Dict, Union
+from urllib.parse import SplitResult
 
 import requests
 from flask import g, Response
+from werkzeug.datastructures import MultiDict
 
 from . import common
 
@@ -40,6 +43,20 @@ def access_control_allow_origin(origin):
             return out
         return postprocess
     return wrapper
+
+
+def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> Dict[str, Union[SplitResult, MultiDict]]:
+    path = url.path.replace(find, replace)
+    query = url.query.replace(find, replace)
+    url = SplitResult(url.scheme, url.netloc, path, query, url.fragment)
+
+    for name in multidicts:
+        dict_ = multidicts[name]
+        multidicts[name] = type(dict_)({
+            k: list(map(lambda v: v.replace(find, replace), dict_.getlist(k, type=str))) for k in dict_.keys()
+        })
+
+    return dict(url=url, **multidicts)
 
 
 def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:

@@ -16,36 +16,28 @@
 
 from operator import attrgetter
 from textwrap import dedent
-from typing import Tuple, Dict
-from urllib.parse import urljoin, urlsplit, unquote, SplitResult
+from typing import Tuple
+from urllib.parse import urljoin, urlsplit, SplitResult
 
 import requests
 from flask_babel import _
-from flask import current_app, Request, Response, stream_with_context, abort
+from flask import Request, Response, stream_with_context, abort
 from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.exceptions import HTTPException
 
 from . import exceptions
 
 
-def metadata_from_request(g, request: Request, endpoint, values):
-    g.server_origin = f'{request.scheme}://{request.host}'
+def extract_request_info(request: Request):
+    return dict(
+        headers=Headers(request.headers),
+        params=MultiDict(request.args),
+        cookies=MultiDict(request.cookies),
+    )
 
-    g.request_headers = Headers(request.headers)
-    g.request_params = MultiDict(request.args)
-    g.request_cookies = MultiDict(request.cookies)
-    g.request_fetch_mode = g.request_headers.get('Sec-Fetch-Mode')
 
-    g.request_referrer = urlsplit(request.referrer) if request.referrer else None
-
-    if 'requested' in values:
-        g.urlsplit_requested = normalize_url(unquote(values['requested']))
-
-    g.request_headers.pop('Referer', None)
-    g.request_headers.pop('Host', None)
-
-    g.request_metadata = dict(headers=g.request_headers, params=g.request_params, cookies=g.request_cookies)
-    g.request_payload = request.stream if request.content_length else None
+def stream_request_body(request: Request):
+    return request.stream if request.content_length else None
 
 
 def normalize_url(url) -> SplitResult:
@@ -75,6 +67,16 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
     return None
 
 
+def prepare_request(url, *, method='GET', filters=None, **requests_kwargs) -> requests.PreparedRequest:
+    # Annoying
+    # https://github.com/psf/requests/issues/1648
+    # https://github.com/psf/requests/pull/3897
+    outbound = requests.Request(method=method, url=url, **requests_kwargs).prepare()
+    if 'Content-Length' in outbound.headers:
+        outbound.headers.pop('Transfer-Encoding', None)
+    return outbound
+
+
 def _pipe(response: requests.Response):
     while True:
         chunk = response.raw.read(1024)
@@ -83,25 +85,8 @@ def _pipe(response: requests.Response):
         yield chunk
 
 
-def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Response, Response]:
+def pipe_request(outbound: requests.PreparedRequest) -> Tuple[requests.Response, Response]:
     try:
-        # Annoying
-        # https://github.com/psf/requests/issues/1648
-        # https://github.com/psf/requests/pull/3897
-        outbound = requests.Request(method=method, url=url, **requests_kwargs).prepare()
-        if 'Content-Length' in outbound.headers:
-            outbound.headers.pop('Transfer-Encoding', None)
-
-        tests = current_app.config.get('PORTAL_URL_FILTERS', set())
-        for t in tests:
-            should_abort = False
-            try:
-                should_abort = t(outbound)
-            except Exception:
-                pass
-            if should_abort:
-                abort(exceptions.PortalSelfProtect(url, t))
-
         remote_response = requests.session().send(outbound, allow_redirects=False, stream=True)
 
         flask_response = Response(
@@ -115,33 +100,19 @@ def pipe_request(url, *, method='GET', **requests_kwargs) -> Tuple[requests.Resp
     except HTTPException as e:
         raise e
     except requests.HTTPError as e:
-        return abort(int(e.response.status_code), _('Got HTTP %(code)d while accessing <code>%(url)s</code>', code=e.response.status_code, url=url))
+        return abort(int(e.response.status_code), _('Got HTTP %(code)d while accessing <code>%(url)s</code>', code=e.response.status_code, url=outbound.url))
     except requests.exceptions.TooManyRedirects:
-        return abort(400, _('Unable to access <code>%(url)s</code><br/>Too many redirects.', url=url))
+        return abort(400, _('Unable to access <code>%(url)s</code><br/>Too many redirects.', url=outbound.url))
     except requests.exceptions.SSLError:
-        return abort(502, _('Unable to access <code>%(url)s</code><br/>An TLS/SSL error occured, remote server may not support HTTPS.', url=url))
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>An TLS/SSL error occured, remote server may not support HTTPS.', url=outbound.url))
     except requests.ConnectionError:
-        return abort(502, _('Unable to access <code>%(url)s</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.', url=url))
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.', url=outbound.url))
     except Exception as e:
         return abort(500, dedent(_("""
         <pre><code>An unhandled error occured while processing this request.
         Parsed URL: %(url)s
         Error name: %(errname)s</code></pre>
-        """, url=url, errname=e.__class__.__name__)))
-
-
-def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> Tuple[SplitResult, Dict[str, MultiDict]]:
-    path = url.path.replace(find, replace)
-    query = url.query.replace(find, replace)
-    url = SplitResult(url.scheme, url.netloc, path, query, url.fragment)
-
-    for name in multidicts:
-        dict_ = multidicts[name]
-        multidicts[name] = type(dict_)({
-            k: list(map(lambda v: v.replace(find, replace), dict_.getlist(k, type=str))) for k in dict_.keys()
-        })
-
-    return url, multidicts
+        """, url=outbound.url, errname=e.__class__.__name__)))
 
 
 def copy_headers(remote: requests.Response, response: Response, *, server_origin) -> Headers:

@@ -14,9 +14,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections.abc import Hashable, Callable
+from collections.abc import Hashable, Callable, MutableSet
 
 import requests
+
+from . import exceptions
 
 
 class RequestTest(Hashable):
@@ -47,9 +49,41 @@ class RequestTest(Hashable):
         return wrap
 
 
+class RequestFilter(MutableSet):
+    def __init__(self, *iterable):
+        iterable = iterable or set()
+        self._tests = {*iterable}
+
+    def __contains__(self, item):
+        return item in self._tests
+
+    def __iter__(self):
+        return self._tests.__iter__()
+
+    def __len__(self):
+        return self._tests.__len__()
+
+    def add(self, item):
+        return self._tests.add(item)
+
+    def discard(self, item):
+        return self._tests.discard(item)
+
+    def test(self, request: requests.PreparedRequest):
+        for f in self._tests:
+            should_abort = False
+            try:
+                should_abort = f(request)
+            except Exception:
+                pass
+            if should_abort:
+                return exceptions.PortalSelfProtect(request.url, f)
+        return None
+
+
 def setup_filters(app):
     filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
-    tests = set()
+    tests = RequestFilter()
     for kwargs in filter_kwargs:
         tests.add(RequestTest(**kwargs))
     app.config['PORTAL_URL_FILTERS'] = tests
