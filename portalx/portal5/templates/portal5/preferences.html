@@ -91,12 +91,27 @@
         margin: 0.5rem 0;
         text-align: end;
     }
+
+    #updated {
+        display: none;
+    }
+
+    #updated:target {
+        display: initial;
+    }
+
+    br {
+        margin-top: 1rem;
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
     window.addEventListener('load', () => {
+        setTimeout(() => {
+            history.pushState('', document.title, window.location.pathname + window.location.search)
+        }, 5000)
         document.querySelectorAll('label').forEach((l) => {
             l.addEventListener('click', (ev) => {
                 const label = ev.target
@@ -123,19 +138,6 @@
         })
     });
 </script>
-{% if updated %}
-<script>
-    const version = '{{ version }}'
-    window.addEventListener('load', () => history.replaceState("", "", "/settings"));
-    window.addEventListener('load', async () => {
-        if ('serviceWorker' in navigator) {
-            let registration = await navigator.serviceWorker.getRegistration()
-            await registration.unregister()
-            await navigator.serviceWorker.register(`/service-worker.${version}.js`, { scope: '/' })
-        }
-    });
-</script>
-{% endif %}
 {% endblock %}
 
 {% block main %}
@@ -157,22 +159,23 @@
             </button>
         </div>
         <div class="option-description collapsed">
-            <p>{{ details.desc|safe }}</p>
+            {% for line in details.desc %}
+            <p>{{ line|safe }}</p>
+            {% endfor %}
         </div>
     </div>
 
     {% endfor %}
     {% endfor %}
 
+    <input type="hidden" name="id" value="{{ g.p5request.id }}" />
+
     <div class="form-footer">
-        {% if updated %}
-        <p class="color-green-fg">Your preferences have been updated.</p>
-        {% endif %}
+        <p class="color-green-fg" id="updated">Your preferences have been updated.</p>
         <button type="submit" name="action" value="update" class="color-cyan-bg">Save preferences</button>
     </div>
     <div class="form-postscript">
         <button type="submit" name="action" value="reset" class="color-gray-bg">Reset defaults</button>
-        <h6>Your preferences are saved using cookies.<br> They remain effective until you clear the data for this site.</h6>
     </div>
 
 </form>

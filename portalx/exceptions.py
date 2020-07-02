@@ -23,13 +23,13 @@ class PortalException(Exception):
 
 
 class PortalHTTPException(HTTPException, PortalException):
-    def __init__(self, description=None, response=None, status=500, unsafe=False, **kwargs):
+    def __init__(self, description=None, response=None, status=500, unsafe_markup=False, **kwargs):
         super().__init__(description=description, response=response, **kwargs)
         self.code = status
-        self.unsafe = unsafe
+        self.unsafe_markup = unsafe_markup
 
     def get_response(self, environ=None):
-        return Response(render_template('error.html', statuscode=self.code, message=self.description or '', unsafe=self.unsafe), self.code)
+        return Response(render_template('error.html', statuscode=self.code, message=self.description or '', unsafe_markup=self.unsafe_markup), self.code)
 
 
 class PortalBadRequest(PortalHTTPException):
@@ -49,7 +49,7 @@ class PortalMissingProtocol(PortalBadRequest):
 
 class PortalSelfProtect(PortalHTTPException):
     def __init__(self, url, test, **kwargs):
-        super().__init__(description=None, response=None, status=403, unsafe=True, **kwargs)
+        super().__init__(description=None, response=None, status=403, unsafe_markup=True, **kwargs)
         self.url = url
         self.test = test
 

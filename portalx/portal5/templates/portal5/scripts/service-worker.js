@@ -25,9 +25,6 @@ self.destinationRequiresRedirect = {
     worker: true,
 }
 
-self.settings = JSON.parse('{{ settings|tojson }}')
-self.server = self.settings.protocol + '://' + self.settings.host
-
 class ClientRecordContainer {
     constructor() {
         setInterval(this.trim, 300000)
@@ -116,6 +113,8 @@ class Portal5Request {
     }
 }
 
+self.settings = JSON.parse('{{ settings|tojson }}')
+self.server = self.settings.protocol + '://' + self.settings.host
 self.clientRecords = new ClientRecordContainer()
 
 self.addEventListener('install', (event) => {
@@ -153,7 +152,6 @@ function requiresAuthorization(event) {
                 }
                 if (request.method == 'POST') requestOpts.body = await request.blob()
                 let response = await fetch(request.url, requestOpts)
-                console.log(response.status)
                 return response
             })()
         )

@@ -111,7 +111,10 @@ def requires_identity(view_func):
 @requires_identity
 @security.access_control_same_origin
 def get_prefs():
-    return render_template('portal5/preferences.html', prefs=g.p5request.print_prefs(server_origin=g.server_origin))
+    return render_template(
+        'portal5/preferences.html',
+        prefs=g.p5request.print_prefs(server_origin=g.server_origin),
+    )
 
 
 @portal5.route(Portal5Request.SETTINGS_ENDPOINT, methods=('POST',))
@@ -122,19 +125,25 @@ def save_prefs():
     p5: Portal5Request = g.p5request
 
     prefs = dict(**request.form)
+    if p5.id != prefs.pop('id', None):
+        return abort(401)
+
     if prefs.pop('action') == 'reset':
         p5.prefs = p5.make_default_prefs()
     else:
         p5.prefs = {k: bool(int(v)) for k, v in prefs.items()}
 
     res = Response(render_template(
-        'portal5/preferences.html',
-        prefs=p5.print_prefs(server_origin=g.server_origin),
-        updated=True,
+        'portal5/preferences-updated.html',
         version=p5.get_bitmask()
     ))
 
     return res
+
+
+@portal5.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+def direct_fetch(requested: SplitResult):
+    return fetch(requested)
 
 
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
@@ -169,22 +178,10 @@ def fetch(requested: SplitResult):
         abort(should_abort)
 
     remote, response = common.pipe_request(outbound)
-
-    if p5.prefs['basic_set_headers']:
-        common.copy_headers(remote, response, server_origin=g.server_origin)
-
-    if p5.prefs['basic_set_cookies']:
-        common.copy_cookies(remote, response, server_domain=request.host)
-
-    if p5.prefs['security_enforce_cors']:
-        security.enforce_cors(remote, response, request_origin=p5.origin, server_origin=g.server_origin)
-
-    if p5.prefs['security_break_csp']:
-        security.break_csp(remote, response, server_origin=g.server_origin)
+    p5.process_response(
+        remote, response,
+        server_origin=g.server_origin,
+        server_domain=request.host,
+    )
 
     return response
-
-
-@portal5.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-def direct_fetch(requested: SplitResult):
-    return fetch(requested)

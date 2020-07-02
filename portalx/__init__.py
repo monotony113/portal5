@@ -38,7 +38,7 @@ def load_blueprints(app: Flask):
 
 def setup_error_handling(app: Flask):
     def handle_error(e):
-        return render_template('error.html', statuscode=e.code, message=e.description, unsafe=getattr(e, 'unsafe', False)), e.code
+        return render_template('error.html', statuscode=e.code, message=e.description, unsafe_markup=getattr(e, 'unsafe_markup', False)), e.code
 
     for exc in (400, 401, 403, 404, 451, 500, 502, 503):
         app.register_error_handler(exc, handle_error)

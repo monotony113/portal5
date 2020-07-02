@@ -16,7 +16,7 @@
 
 from functools import wraps
 from typing import Dict, Union
-from urllib.parse import SplitResult
+from urllib.parse import urlsplit, SplitResult
 
 import requests
 from flask import g, Response
@@ -59,7 +59,7 @@ def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> 
     return dict(url=url, **multidicts)
 
 
-def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin) -> None:
+def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin, **kwargs) -> None:
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
     if not allow_origin or allow_origin == '*':
         return
@@ -71,7 +71,7 @@ def enforce_cors(remote: requests.Response, response: Response, *, request_origi
     response.headers['Access-Control-Allow-Origin'] = server_origin
 
 
-def break_csp(remote: requests.Response, response: Response, *, server_origin) -> None:
+def break_csp(remote: requests.Response, response: Response, *, server_origin, request_origin, **kwargs) -> None:
     non_source_directives = {
         'plugin-types', 'sandbox',
         'block-all-mixed-content', 'referrer',
@@ -93,6 +93,15 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin) -
                 continue
             if "'none'" not in options:
                 options.add(server_origin)
+            if "'self'" in options:
+                options.add(request_origin)
 
         broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
         response.headers[header] = broken_csp
+
+
+def add_clear_site_data_header(remote: requests.Response, response: Response, *, request_mode, request_origin, **kwargs):
+    remote_url = urlsplit(remote.url)
+    remote_origin = f'{remote_url.scheme}://{remote_url.netloc}'
+    if request_mode == 'navigate' and request_origin != remote_origin:
+        response.headers.add('Clear-Site-Data', '"cookies"')

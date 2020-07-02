@@ -115,7 +115,7 @@ def pipe_request(outbound: requests.PreparedRequest) -> Tuple[requests.Response,
         """, url=outbound.url, errname=e.__class__.__name__)))
 
 
-def copy_headers(remote: requests.Response, response: Response, *, server_origin) -> Headers:
+def copy_headers(remote: requests.Response, response: Response, *, server_origin, **kwargs) -> Headers:
     remote_url: SplitResult = urlsplit(remote.url)
     headers = Headers(remote.headers.items())
 
@@ -130,7 +130,7 @@ def copy_headers(remote: requests.Response, response: Response, *, server_origin
     return headers
 
 
-def copy_cookies(remote: requests.Response, response: Response, *, server_domain) -> list:
+def copy_cookies(remote: requests.Response, response: Response, *, server_domain, **kwargs) -> list:
     remote_url: SplitResult = urlsplit(remote.url)
     cookie_jar = remote.cookies
 

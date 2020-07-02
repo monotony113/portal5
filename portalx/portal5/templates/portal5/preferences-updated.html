@@ -1,0 +1,19 @@
+{% extends 'components/blank.html' %}
+
+{% block scripts %}
+<script>
+    const version = '{{ version }}'
+    window.addEventListener('load', () => history.replaceState("", "", "/settings"));
+    window.addEventListener('load', async () => {
+        if ('serviceWorker' in navigator) {
+            let registration = await navigator.serviceWorker.getRegistration()
+            await registration.unregister()
+            await navigator.serviceWorker.register(`/service-worker.${version}.js`, {
+                scope: '/'
+            })
+            history.pushState('', document.title, '#updated')
+            window.location.reload()
+        }
+    });
+</script>
+{% endblock %}

@@ -17,9 +17,11 @@
 from flask import Flask, request
 from flask_babel import Babel
 
+babel = Babel()
+
 
 def setup_languages(app: Flask):
-    babel = Babel(app)
+    babel.init_app(app)
 
     @babel.localeselector
     def get_locale():
