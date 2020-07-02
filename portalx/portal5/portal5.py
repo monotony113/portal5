@@ -98,13 +98,17 @@ class URLPassthruSettingsMixin(object):
 class Portal5Request(PreferenceMixin, URLPassthruSettingsMixin):
     __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin'
 
-    VERSION = 2
+    VERSION = 4
 
     HEADER = 'X-Portal5'
     SETTINGS_ENDPOINT = '/settings'
 
     def __init__(self, request: Request):
-        fetch = json.loads(request.headers.get(self.HEADER, '{}'))
+        try:
+            fetch = json.loads(request.headers.get(self.HEADER, '{}'))
+        except Exception:
+            fetch = dict()
+
         for k in self.__slots__:
             if not hasattr(self, k):
                 setattr(self, k, fetch.get(k, None))

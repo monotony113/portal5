@@ -28,7 +28,6 @@ function log(msg, fd) {
 
 async function initServiceWorker() {
     const waitAndReload = async () => {
-        log('await navigator.serviceWorker.ready')
         log('window.location.reload')
         window.location.reload()
     }
@@ -48,6 +47,7 @@ async function initServiceWorker() {
             log('registration.update')
             await waitAndReload()
         })
+        await registration.update()
     }
 }
 

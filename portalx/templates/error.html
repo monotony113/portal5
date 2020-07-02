@@ -6,6 +6,9 @@
 {% if statuscode == 400 %}
 {% set text = "Bad Request" %}
 
+{% elif statuscode == 401 %}
+{% set text = "Unauthorized" %}
+
 {% elif statuscode == 403 %}
 {% set text = "Forbidden" %}
 

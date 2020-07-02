@@ -112,7 +112,6 @@ class Portal5Request {
                 delete p5.id
                 break
         }
-        delete p5.id
         headers.set('X-Portal5', JSON.stringify(p5))
     }
 }
@@ -135,17 +134,14 @@ function requiresAuthorization(event) {
     let request = event.request
     let url = new URL(request.url)
     if (url.pathname in self.settings.restricted) {
-        if (request.mode != 'navigate') throw new Error(`Unacceptable request mode ${request.mode}`)
+        if (request.mode != 'navigate')
+            return event.respondWith(new Response(`Unacceptable request mode ${request.mode}`, { status: 403 }))
         if (request.method != 'GET' && request.method != 'POST')
-            throw new Error(`Unacceptable HTTP method ${request.method}`)
+            return event.respondWith(new Response(`Unacceptable HTTP method ${request.method}`, { status: 403 }))
 
-        let settings = self.settings
         let headers = new Headers()
-
-        let p5 = new Object()
-        p5.version = settings.version
-        p5.id = settings.id
-        headers.set('X-Portal5', JSON.stringify(p5))
+        let p5 = new Portal5Request(self.settings)
+        p5.setHeader(headers, 'secret')
 
         event.respondWith(
             (async () => {
@@ -267,7 +263,11 @@ async function synthesizeURL(request, client) {
     synthesized.search = requested.search
     synthesized.hash = requested.hash
 
-    synthesized = new URL(trimPrefix(synthesized.href, self.server + '/'), self.server)
+    try {
+        synthesized = new URL(trimPrefix(synthesized.href, self.server + '/'), self.server)
+    } catch (e) {
+        console.warn(e)
+    }
 
     return { referrer, synthesized, requested }
 }

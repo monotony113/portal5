@@ -86,7 +86,7 @@ def service_worker(version):
     return worker
 
 
-def require_worker(view_func):
+def requires_worker(view_func):
     @wraps(view_func)
     def install(*args, **kwargs):
         p5: Portal5Request = g.p5request
@@ -96,15 +96,27 @@ def require_worker(view_func):
     return install
 
 
+def requires_identity(view_func):
+    @wraps(view_func)
+    def security_check(*args, **kwargs):
+        p5: Portal5Request = g.p5request
+        if not p5.id:
+            return abort(401)
+        return view_func(*args, **kwargs)
+    return security_check
+
+
 @portal5.route(Portal5Request.SETTINGS_ENDPOINT)
-@require_worker
+@requires_worker
+@requires_identity
 @security.access_control_same_origin
 def get_prefs():
     return render_template('portal5/preferences.html', prefs=g.p5request.print_prefs(server_origin=g.server_origin))
 
 
 @portal5.route(Portal5Request.SETTINGS_ENDPOINT, methods=('POST',))
-@require_worker
+@requires_worker
+@requires_identity
 @security.access_control_same_origin
 def save_prefs():
     p5: Portal5Request = g.p5request
@@ -126,7 +138,7 @@ def save_prefs():
 
 
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-@require_worker
+@requires_worker
 def process_request(requested: SplitResult):
     return fetch(requested)
 
