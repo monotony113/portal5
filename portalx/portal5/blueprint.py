@@ -16,11 +16,12 @@
 
 # TODO: settings for rewrites, cookies (httponly), cors, csp, iframe
 
-from urllib.parse import SplitResult, urlsplit, urljoin
+from functools import wraps
+from urllib.parse import SplitResult, urljoin, unquote
 
 from flask import Blueprint, Request, Response, request, current_app, g, render_template, abort, redirect
 
-from . import features
+from .portal5 import Portal5Request
 from .. import common, security
 
 APPNAME = 'portal5'
@@ -28,10 +29,19 @@ request: Request
 portal5 = Blueprint(
     APPNAME, __name__,
     template_folder='templates', static_folder='static',
-    subdomain=APPNAME
+    subdomain=APPNAME, static_url_path=None
 )
 
-WORKER_VERSION = 2
+
+@portal5.before_request
+def parse_p5():
+    g.p5request = Portal5Request(request)
+
+
+@portal5.url_value_preprocessor
+def parse_url(endpoint, values):
+    if 'requested' in values:
+        values['requested'] = common.normalize_url(unquote(values['requested']))
 
 
 @portal5.route('/')
@@ -42,156 +52,122 @@ def home():
 
 
 @portal5.route('/favicon.ico')
-@security.access_control_same_origin
-def index_js():
+@security.access_control_allow_origin('*')
+def favicon():
     return portal5.send_static_file('favicon.ico')
+
+
+@portal5.route('/install-worker')
+def install_worker():
+    return render_template(f'{APPNAME}/install-worker.html')
+
+
+@portal5.route('/install-worker.js')
+def install_worker_js():
+    return portal5.send_static_file('install-worker.js')
 
 
 @portal5.route('/service-worker.js')
 @security.access_control_same_origin
 def service_worker():
-    if g.request_headers.get('Service-Worker') != 'script':
+    if request.headers.get('Service-Worker') != 'script':
         return abort(403)
 
-    service_domains = {
-        f'{rule.subdomain}.{g.sld}'
-        for rule in current_app.url_map.iter_rules()
-        if rule.subdomain
-    }
-    passthru_domains = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('domains', set())
-    passthru_urls = current_app.config.get_namespace('PORTAL5_PASSTHRU_').get('urls', set())
+    if request.referrer == f'{g.server_origin}/service-worker.js':
+        return '', 304
 
-    worker_settings = dict(
-        version=WORKER_VERSION,
-        protocol=request.scheme,
-        host=request.host,
-        passthru=dict(
-            domains={k: True for k in ({g.sld} | service_domains | passthru_domains)},
-            urls={k: True for k in passthru_urls}
-        )
-    )
+    p5: Portal5Request = g.p5request
+    worker_settings = p5.make_worker_settings(request, current_app, g)
     worker = Response(
         render_template(f'{APPNAME}/scripts/service-worker.js', settings=worker_settings),
         headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript'
     )
+    worker.set_cookie(**p5.make_cookie(request))
     return worker
 
 
-@portal5.route('/settings', methods=('GET', 'POST'))
+def require_worker(view_func):
+    @wraps(view_func)
+    def install(*args, **kwargs):
+        p5: Portal5Request = g.p5request
+        if not p5.up_to_date:
+            return install_worker()
+        return view_func(*args, **kwargs)
+    return install
+
+
+@portal5.route(Portal5Request.SETTINGS_ENDPOINT)
+@require_worker
 @security.access_control_same_origin
-def settings():
-    if request.method == 'POST':
-        settings = dict(**request.form)
-        if settings.pop('action') == 'reset':
-            g.settings = features.FEATURES_DEFAULTS
-        else:
-            g.settings = {k: bool(int(v)) for k, v in settings.items()}
+def get_prefs():
+    return render_template('portal5/preferences.html', prefs=g.p5request.print_prefs(server_origin=g.server_origin))
 
-    settings = dict()
-    for k, v in g.settings.items():
-        option = dict()
-        option['enabled'] = v
-        option.update({k_: v % {'server_origin': g.server_origin} for k_, v in features.FEATURES_HUMAN_READABLE[k].items()})
-        section = settings.setdefault(k.split('_')[0], dict())
-        section[k] = option
 
-    res = Response(render_template('portal5/settings.html', settings=settings, updated=request.method == 'POST'))
-    if request.method == 'POST':
-        res.set_cookie(
-            'portal5_settings', str(features.make_cookie(g.settings)),
-            path='/', domain=request.host,
-            secure=True, httponly=True
-        )
+@portal5.route(Portal5Request.SETTINGS_ENDPOINT, methods=('POST',))
+@require_worker
+@security.access_control_same_origin
+def save_prefs():
+    p5: Portal5Request = g.p5request
+
+    prefs = dict(**request.form)
+    if prefs.pop('action') == 'reset':
+        p5.prefs = p5.make_default_prefs()
+    else:
+        p5.prefs = {k: bool(int(v)) for k, v in prefs.items()}
+
+    res = Response(render_template(
+        'portal5/preferences.html', prefs=p5.print_prefs(server_origin=g.server_origin), updated=True
+    ))
+    res.set_cookie(**p5.make_cookie(request))
 
     return res
 
 
-@portal5.url_value_preprocessor
-def preprocess(endpoint, values):
-    common.metadata_from_request(g, request, endpoint, values)
-    headers: dict = g.request_headers
-
-    worker_ver = headers.pop('X-Portal5-Worker-Version', None)
-    try:
-        g.request_worker_ver = int(worker_ver)
-    except (TypeError, ValueError):
-        g.request_worker_ver = None
-
-    settings = g.request_cookies.pop('portal5_settings', None)
-    g.settings = features.read_cookie(settings) if settings is not None else features.FEATURES_DEFAULTS
-
-    referrer = headers.pop('X-Portal5-Referrer', None)
-    if referrer:
-        headers['Referer'] = referrer
-
-    headers.pop('Origin', None)
-    origin = headers.pop('X-Portal5-Origin', None)
-    fetch_mode = headers.pop('X-Portal5-Mode', None)
-    if origin and (fetch_mode == 'cors' or request.method not in {'GET', 'HEAD'}):
-        headers['Origin'] = origin
-    g.request_origin = origin
-
-    origin_domain = None
-    if origin:
-        origin_domain = urlsplit(origin).netloc
-    elif referrer and not origin:
-        origin_domain = urlsplit(referrer).netloc
-
-    if origin_domain:
-        g.urlsplit_requested, g.request_metadata = common.conceal_origin(
-            request.host, origin_domain, g.urlsplit_requested, **g.request_metadata
-        )
-
-
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
-def forward(requested):
-    urlsplit_requested = g.urlsplit_requested
-    if not urlsplit_requested.path:
-        urlsplit_requested = SplitResult(*[*urlsplit_requested[:2], '/', *urlsplit_requested[3:]])
-        g.urlsplit_requested = urlsplit_requested
+@require_worker
+def process_request(requested: SplitResult):
+    return fetch(requested)
 
-    guard = common.guard_incoming_url(g, urlsplit_requested, request)
+
+def fetch(requested: SplitResult):
+    url_ = requested
+    if not url_.path:
+        url_ = SplitResult(*[*requested[:2], '/', *requested[3:]])
+
+    guard = common.guard_incoming_url(g, url_, request)
     if guard:
         abort(guard)
 
-    url = urlsplit_requested.geturl()
-
-    if url != requested:
+    if url_ != requested:
         if request.query_string:
-            url = urljoin(url, f'?{request.query_string.decode("utf8")}')
+            url = urljoin(url_.geturl(), f'?{request.query_string.decode("utf8")}')
+        else:
+            url = url_.geturl()
         return redirect(f'{request.scheme}://{request.host}/{url}', 307)
 
-    requests_kwargs = dict(**g.request_metadata, data=g.request_payload)
+    p5: Portal5Request = g.p5request
 
-    worker_ver = g.request_worker_ver
-    if worker_ver:
-        if worker_ver == WORKER_VERSION:
-            return fetch(url, **requests_kwargs)
-        else:
-            return install_worker(url)
+    outbound = common.prepare_request(**p5(url_, request))
 
-    else:
-        head, _ = common.pipe_request(url, method='HEAD', **requests_kwargs)
-        if head.status_code == 405:
-            head, _ = common.pipe_request(url, **requests_kwargs)
-        if 'text/html' in head.headers.get('Content-Type', ''):
-            return install_worker(url)
-        else:
-            return fetch(url, **requests_kwargs)
+    filters = current_app.config.get('PORTAL_URL_FILTERS')
+    should_abort = filters.test(outbound)
+    if should_abort:
+        abort(should_abort)
 
+    remote, response = common.pipe_request(outbound)
 
-def install_worker(url):
-    return render_template(
-        f'{APPNAME}/worker-install.html',
-        remote=url,
-        browser_additional='MicroMessenger' in request.user_agent.string,
-    )
+    if p5.prefs['basic_set_headers']:
+        common.copy_headers(remote, response, server_origin=g.server_origin)
+    if p5.prefs['basic_set_cookies']:
+        common.copy_cookies(remote, response, server_domain=request.host)
+    if p5.prefs['security_enforce_cors']:
+        security.enforce_cors(remote, response, request_origin=p5.origin, server_origin=g.server_origin)
+    if p5.prefs['security_break_csp']:
+        security.break_csp(remote, response, server_origin=g.server_origin)
 
-
-def fetch(url, **kwargs):
-    remote, response = common.pipe_request(url, method=request.method, **kwargs)
-    common.copy_headers(remote, response, server_origin=g.server_origin)
-    common.copy_cookies(remote, response, server_domain=request.host)
-    security.enforce_cors(remote, response, request_origin=g.request_origin, server_origin=g.server_origin)
-    security.break_csp(remote, response, server_origin=g.server_origin)
     return response
+
+
+@portal5.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+def direct_fetch(requested: SplitResult):
+    return fetch(requested)

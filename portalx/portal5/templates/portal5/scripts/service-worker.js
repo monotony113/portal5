@@ -16,7 +16,7 @@
 
 /* eslint-env serviceworker */
 
-self.DESTINATION_307 = {
+self.destinationRequiresRedirect = {
     document: true,
     embed: true,
     object: true,
@@ -26,6 +26,7 @@ self.DESTINATION_307 = {
 }
 
 self.settings = JSON.parse('{{ settings|tojson }}')
+self.server = self.settings.protocol + '://' + self.settings.host
 
 class ClientRecordContainer {
     constructor() {
@@ -59,173 +60,208 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim())
 })
 
-self.addEventListener('fetch', handleFetchRewriteURL)
+self.addEventListener('fetch', requiresAuthorization)
+self.addEventListener('fetch', rewriteURL)
 
-function handleFetchRewriteURL(event) {
-    var synthesize = async () => {
-        /** @type {Request} */
-        let request = event.request
-        /** @type {ClientRecordContainer} */
-        let clientRecords = self.clientRecords
+function requiresAuthorization(event) {
+    /** @type {Request} */
+    let request = event.request
+    let url = new URL(request.url)
+    if (url.pathname in self.settings.restricted) {
+        if (request.mode != 'navigate') throw new Error(`Unacceptable request mode ${request.mode}`)
+        if (request.method != 'GET' && request.method != 'POST')
+            throw new Error(`Unacceptable HTTP method ${request.method}`)
 
-        var settings = self.settings
-        let server = settings.protocol + '://' + settings.host
-
-        // URLs parsed from different sources that will be used to synthesize the final URL for network request
-        /**
-         * Location of the window that fired this `FetchEvent`, collected from `client.url`, where `client` (the window)
-         * is accessed using `FetchEvent.clientId` or `FetchEvent.replacesClientId`
-         * @type {URL}
-         */
-        let location = null
-        /**
-         * URL to the actual resource that the user is currently visiting (that is instead served via this server);
-         * equals `location` minus any server prefixes.
-         * @type {URL}
-         */
-        let represented = null
-        /**
-         * The referrer, parsed from `FetchEvent.request.referrer`; may not be available depending on the referrer policy.
-         * @type {URL}
-         */
-        let referrer = null
-        /**
-         * The requested URL that needs to be worked on, from `FetchEvent.request.url`.
-         * @type {URL}
-         */
-        let requested = new URL(request.url)
-        /**
-         * Stores the final, correct URL, synthesized from the above URLs.
-         * @type {URL}
-         */
-        let synthesized = new URL('http://example.org')
-
+        let settings = self.settings
         let headers = new Headers()
-        request.headers.forEach((v, k) => headers.append(k, v))
-        headers.set('X-Portal5-Worker-Version', settings.version.toString())
 
-        var client = await clients.get(event.clientId || event.replacesClientId)
-        if (!client && 'clients' in self && 'matchAll' in clients) {
-            let windows = await clients.matchAll({ type: 'window' })
-            windows = windows.filter((w) => w.url == request.referrer)
-            if (windows) client = windows[0]
-        }
+        let p5 = new Object()
+        p5.version = settings.version
+        p5.id = settings.id
+        headers.set('X-Portal5', JSON.stringify(p5))
 
-        if (client) {
-            location = new URL(client.url)
-            try {
-                represented = new URL(location.pathname.substr(1))
-            } catch (e) {
-                let stored = clientRecords.get(client.id)
-                if (stored) {
-                    represented = new URL(stored.represented)
-                    represented.pathname = location.pathname
+        event.respondWith(
+            (async () => {
+                let requestOpts = {
+                    method: request.method,
+                    mode: 'same-origin',
+                    credentials: 'same-origin',
+                    headers: headers,
                 }
-            }
-            if (represented) {
-                represented.search = location.search
-                represented.hash = location.hash
-            }
-        }
-
-        if (represented) clientRecords.add(client.id, represented.href)
-
-        if (request.referrer) {
-            let referrerURL = new URL(request.referrer)
-            try {
-                referrer = new URL(referrerURL.pathname.substr(1))
-                referrer.search = referrerURL.search
-                referrer.hash = referrerURL.hash
-            } catch (e) {
-                if (represented) {
-                    referrer = referrerURL
-                    referrer.protocol = represented.protocol
-                    referrer.host = represented.host
-                }
-            }
-        }
-
-        if (!represented) represented = referrer
-        if (!referrer) referrer = represented
-
-        if (server != requested.origin) {
-            synthesized = new URL(requested)
-        } else {
-            try {
-                synthesized = new URL(requested.pathname.substr(1))
-            } catch (e) {
-                if (referrer) {
-                    synthesized = new URL(referrer)
-                } else {
-                    synthesized = new URL(server)
-                }
-                synthesized.pathname = requested.pathname
-            }
-        }
-
-        synthesized.search = requested.search
-        synthesized.hash = requested.hash
-
-        if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
-            return fetch(request.clone())
-
-        let requestOpts = {
-            method: request.method,
-            headers: headers,
-            credentials: request.credentials,
-            cache: request.cache,
-            redirect: request.redirect,
-            integrity: request.integrity,
-            referrer: '',
-            referrerPolicy: request.referrerPolicy,
-            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
-        }
-
-        let body = await request.blob()
-        if (body.size > 0) requestOpts.body = body
-
-        if (referrer) {
-            let setReferrer = (part) => headers.set('X-Portal5-Referrer', referrer[part])
-            switch (request.referrerPolicy) {
-                case 'no-referrer':
-                    break
-                case 'no-referrer-when-downgrade':
-                    if (synthesized.protocol == referrer.protocol) setReferrer('href')
-                    break
-                case 'origin':
-                    setReferrer('origin')
-                    break
-                case 'origin-when-cross-origin':
-                    if (synthesized.origin != referrer.origin) setReferrer('origin')
-                    else setReferrer('href')
-                    break
-                case 'same-origin':
-                    if (synthesized.origin == referrer.origin) setReferrer('href')
-                    break
-                case 'strict-origin':
-                    if (synthesized.protocol == referrer.protocol) setReferrer('origin')
-                    break
-                case 'strict-origin-when-cross-origin':
-                    if (synthesized.origin == referrer.origin) setReferrer('href')
-                    else if (synthesized.protocol == referrer.protocol) setReferrer('origin')
-                    break
-                default:
-                    setReferrer('href')
-                    break
-            }
-        }
-
-        if (referrer) headers.set('X-Portal5-Origin', referrer.origin)
-        headers.set('X-Portal5-Mode', request.mode)
-
-        let final = new URL(server + '/' + synthesized.href)
-
-        if (final.href != requested.href && request.destination in self.DESTINATION_307) {
-            let redirect = new Response('', { status: 307, headers: { Location: final.href } })
-            return redirect
-        }
-
-        return fetch(new Request(final.href, requestOpts))
+                if (request.method == 'POST') requestOpts.body = await request.blob()
+                let response = await fetch(request.url, requestOpts)
+                console.log(response.status)
+                return response
+            })()
+        )
     }
-    event.respondWith(synthesize())
+}
+
+function rewriteURL(event) {
+    event.respondWith(
+        (async () => {
+            /** @type {Request} */
+            let request = event.request
+            let settings = self.settings
+
+            var client = await clients.get(event.clientId || event.replacesClientId)
+            if (!client && 'clients' in self && 'matchAll' in clients) {
+                let windows = await clients.matchAll({ type: 'window' })
+                windows = windows.filter((w) => w.url == request.referrer)
+                if (windows) client = windows[0]
+            }
+
+            var { referrer, synthesized, requested } = await synthesizeURL(request, client)
+            if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
+                return fetch(request.clone())
+
+            let final = synthesized.origin != self.server ? new URL(self.server + '/' + synthesized.href) : synthesized
+            if (final.href != requested.href && request.destination in self.destinationRequiresRedirect) {
+                let redirect = new Response('', { status: 307, headers: { Location: final.href } })
+                return redirect
+            }
+
+            let requestOpts = await makeRequestOptions(request, referrer, synthesized)
+
+            return fetch(new Request(final.href, requestOpts))
+        })()
+    )
+}
+
+/**
+ *
+ * @param {Request} request
+ * @param {Client} client
+ */
+async function synthesizeURL(request, client) {
+    let location = null
+    let represented = null
+    let referrer = null
+    let requested = new URL(request.url)
+    let synthesized = new URL('http://example.org')
+
+    if (client) {
+        location = new URL(client.url)
+        try {
+            represented = new URL(location.pathname.substr(1))
+        } catch (e) {
+            let stored = self.clientRecords.get(client.id)
+            if (stored) {
+                represented = new URL(stored.represented)
+                represented.pathname = location.pathname
+            }
+        }
+        if (represented) {
+            represented.search = location.search
+            represented.hash = location.hash
+        }
+    }
+
+    if (represented) self.clientRecords.add(client.id, represented.href)
+
+    if (request.referrer) {
+        let referrerURL = new URL(request.referrer)
+        try {
+            referrer = new URL(referrerURL.pathname.substr(1))
+            referrer.search = referrerURL.search
+            referrer.hash = referrerURL.hash
+        } catch (e) {
+            if (represented) {
+                referrer = referrerURL
+                referrer.protocol = represented.protocol
+                referrer.host = represented.host
+            }
+        }
+    }
+
+    if (!represented) represented = referrer
+    if (!referrer) referrer = represented
+
+    if (self.server != requested.origin) {
+        synthesized = new URL(requested)
+    } else {
+        try {
+            synthesized = new URL(requested.pathname.substr(1))
+        } catch (e) {
+            if (referrer) {
+                synthesized = new URL(referrer)
+            } else {
+                synthesized = new URL(self.server)
+            }
+            synthesized.pathname = requested.pathname
+        }
+    }
+
+    synthesized.search = requested.search
+    synthesized.hash = requested.hash
+
+    synthesized = new URL(trimPrefix(synthesized.href, self.server + '/'), self.server)
+
+    return { referrer, synthesized, requested }
+}
+
+async function makeRequestOptions(request, referrer, synthesized) {
+    let p5 = new Object()
+    p5.version = self.settings.version
+
+    let headers = new Headers()
+    request.headers.forEach((v, k) => headers.append(k, v))
+
+    let requestOpts = {
+        method: request.method,
+        headers: headers,
+        credentials: request.credentials,
+        cache: request.cache,
+        redirect: request.redirect,
+        integrity: request.integrity,
+        referrer: '',
+        referrerPolicy: request.referrerPolicy,
+        mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
+    }
+
+    let body = await request.blob()
+    if (body.size > 0) requestOpts.body = body
+
+    if (referrer) {
+        let setReferrer = (part) => (p5.referrer = referrer[part])
+        switch (request.referrerPolicy) {
+            case 'no-referrer':
+                break
+            case 'no-referrer-when-downgrade':
+                if (synthesized.protocol == referrer.protocol) setReferrer('href')
+                break
+            case 'origin':
+                setReferrer('origin')
+                break
+            case 'origin-when-cross-origin':
+                if (synthesized.origin != referrer.origin) setReferrer('origin')
+                else setReferrer('href')
+                break
+            case 'same-origin':
+                if (synthesized.origin == referrer.origin) setReferrer('href')
+                break
+            case 'strict-origin':
+                if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                break
+            case 'strict-origin-when-cross-origin':
+                if (synthesized.origin == referrer.origin) setReferrer('href')
+                else if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                break
+            default:
+                setReferrer('href')
+                break
+        }
+    }
+
+    if (referrer) p5.origin = referrer.origin
+    p5.mode = request.mode
+
+    headers.set('X-Portal5', JSON.stringify(p5))
+
+    return requestOpts
+}
+
+function trimPrefix(str, prefix) {
+    if (str.startsWith(prefix)) return trimPrefix(str.substr(prefix.length), prefix)
+    return str
 }

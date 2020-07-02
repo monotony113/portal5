@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script async src="/static/scripts/install-worker.js"></script>
+<script async src="/install-worker.js"></script>
 {% endblock %}
 
 {% block static_messages %}
@@ -41,7 +41,7 @@
     </p>
     <ul>
         <li><em>{{_('(Note: Firefox disables Service Workers in Private Browsing mode)')}}</em></li>
-        {% if browser_additional %}
+        {% if 'MicroMessenger' in request.user_agent.string %}
         <li><em>{{_('(If you are viewing this in WeChat, please open this page in your browser)')}}</em></li>
         {% endif %}
     </ul>
