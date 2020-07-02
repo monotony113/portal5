@@ -125,11 +125,13 @@
 </script>
 {% if updated %}
 <script>
+    const version = '{{ version }}'
     window.addEventListener('load', () => history.replaceState("", "", "/settings"));
     window.addEventListener('load', async () => {
         if ('serviceWorker' in navigator) {
             let registration = await navigator.serviceWorker.getRegistration()
-            await registration.update()
+            await registration.unregister()
+            await navigator.serviceWorker.register(`/service-worker.${version}.js`, { scope: '/' })
         }
     });
 </script>

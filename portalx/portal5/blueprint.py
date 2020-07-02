@@ -64,25 +64,25 @@ def install_worker():
 
 @portal5.route('/install-worker.js')
 def install_worker_js():
-    return portal5.send_static_file('install-worker.js')
+    return render_template(f'{APPNAME}/scripts/install-worker.js', version=g.p5request.get_bitmask())
 
 
-@portal5.route('/service-worker.js')
+@portal5.route('/service-worker.<int:version>.js')
 @security.access_control_same_origin
-def service_worker():
+def service_worker(version):
     if request.headers.get('Service-Worker') != 'script':
         return abort(403)
 
-    if request.referrer == f'{g.server_origin}/service-worker.js':
+    if request.referrer == request.url:
         return '', 304
 
     p5: Portal5Request = g.p5request
+    p5.set_bitmask(version)
     worker_settings = p5.make_worker_settings(request, current_app, g)
     worker = Response(
         render_template(f'{APPNAME}/scripts/service-worker.js', settings=worker_settings),
         headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript'
     )
-    worker.set_cookie(**p5.make_cookie(request))
     return worker
 
 
@@ -116,9 +116,11 @@ def save_prefs():
         p5.prefs = {k: bool(int(v)) for k, v in prefs.items()}
 
     res = Response(render_template(
-        'portal5/preferences.html', prefs=p5.print_prefs(server_origin=g.server_origin), updated=True
+        'portal5/preferences.html',
+        prefs=p5.print_prefs(server_origin=g.server_origin),
+        updated=True,
+        version=p5.get_bitmask()
     ))
-    res.set_cookie(**p5.make_cookie(request))
 
     return res
 
@@ -158,10 +160,13 @@ def fetch(requested: SplitResult):
 
     if p5.prefs['basic_set_headers']:
         common.copy_headers(remote, response, server_origin=g.server_origin)
+
     if p5.prefs['basic_set_cookies']:
         common.copy_cookies(remote, response, server_domain=request.host)
+
     if p5.prefs['security_enforce_cors']:
         security.enforce_cors(remote, response, request_origin=p5.origin, server_origin=g.server_origin)
+
     if p5.prefs['security_break_csp']:
         security.break_csp(remote, response, server_origin=g.server_origin)
 

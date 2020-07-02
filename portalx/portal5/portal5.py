@@ -29,23 +29,8 @@ APPNAME = 'portal5'
 class PreferenceMixin(object):
     __slots__ = ()
 
-    COOKIE_SETTINGS = 'portal5_prefs'
-
-    def __init__(self, request: Request):
-        prefs = request.cookies.get(self.COOKIE_SETTINGS, None)
-        self.prefs: dict = self.read_cookie(prefs) if prefs is not None else FEATURES_DEFAULTS
-
-    @classmethod
-    def read_cookie(cls, cookie_value):
-        return cls._mask2prefs(int(cookie_value))
-
-    def make_cookie(self, request: Request):
-        return dict(
-            key=self.COOKIE_SETTINGS,
-            value=str(self._prefs2mask(self.prefs)),
-            path='/', domain=request.host,
-            secure=True, httponly=True
-        )
+    def __init__(self):
+        self.prefs: dict = self.bitmask_to_dict(self.prefs) if self.prefs is not None else FEATURES_DEFAULTS
 
     def print_prefs(self, **kwargs):
         prefs = dict()
@@ -58,15 +43,24 @@ class PreferenceMixin(object):
         return prefs
 
     def make_client_prefs(self):
-        prefs = {FEATURES_KEYS[k]: self.prefs[FEATURES_KEYS[k]] for k in FEATURES_CLIENT_SPECIFIC}
+        prefs = dict(
+            value=self.get_bitmask(),
+            local={FEATURES_KEYS[k]: self.prefs[FEATURES_KEYS[k]] for k in FEATURES_CLIENT_SPECIFIC}
+        )
         return dict(prefs=prefs)
 
+    def get_bitmask(self):
+        return self.dict_to_bitmask(self.prefs)
+
+    def set_bitmask(self, mask):
+        self.prefs = self.bitmask_to_dict(mask)
+
     @classmethod
-    def _mask2prefs(cls, mask):
+    def bitmask_to_dict(cls, mask):
         return {FEATURES_KEYS[k]: bool(mask & 2 ** k) for k in FEATURES_KEYS if k in FEATURES_KEYS}
 
     @classmethod
-    def _prefs2mask(cls, prefs):
+    def dict_to_bitmask(cls, prefs):
         reverse_lookup = {v: k for k, v in FEATURES_KEYS.items()}
         return reduce(lambda x, y: x | y, [2 ** reverse_lookup.get(k, 0) * int(v) for k, v in prefs.items()])
 
@@ -85,8 +79,7 @@ class URLPassthruSettingsMixin(object):
             if rule.subdomain and rule.subdomain != APPNAME
         }
         defined_endpoints = {
-            f'{g.server_origin}{rule.rule}'
-            for rule in app.url_map.iter_rules()
+            rule.rule for rule in app.url_map.iter_rules()
             if rule.subdomain == APPNAME and '<' not in rule.rule
         }
 
@@ -95,8 +88,9 @@ class URLPassthruSettingsMixin(object):
         passthru_urls = passthru.get('urls', set())
         return {
             'passthru': dict(
-                domains={k: True for k in ({g.sld} | sibling_domains | passthru_domains)},
-                urls={k: True for k in (passthru_urls | defined_endpoints)}
+                domains={k: True for k in {g.sld} | sibling_domains | passthru_domains},
+                urls={k: True for k in passthru_urls},
+                local={k: True for k in defined_endpoints}
             )
         }
 
@@ -106,16 +100,16 @@ class Portal5Request(PreferenceMixin, URLPassthruSettingsMixin):
 
     VERSION = 2
 
-    HEADER_FETCH = 'X-Portal5'
+    HEADER = 'X-Portal5'
     SETTINGS_ENDPOINT = '/settings'
 
     def __init__(self, request: Request):
-        PreferenceMixin.__init__(self, request)
-
-        fetch = json.loads(request.headers.get(self.HEADER_FETCH, '{}'))
+        fetch = json.loads(request.headers.get(self.HEADER, '{}'))
         for k in self.__slots__:
             if not hasattr(self, k):
                 setattr(self, k, fetch.get(k, None))
+
+        PreferenceMixin.__init__(self)
 
     @property
     def up_to_date(self):
@@ -136,8 +130,7 @@ class Portal5Request(PreferenceMixin, URLPassthruSettingsMixin):
         headers.pop('Host', None)
         headers.pop('Origin', None)
         headers.pop('Referer', None)
-        headers.pop(self.HEADER_FETCH, None)
-        info['cookies'].pop(self.COOKIE_SETTINGS, None)
+        headers.pop(self.HEADER, None)
 
         if self.referrer:
             headers['Referer'] = self.referrer

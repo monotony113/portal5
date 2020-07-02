@@ -50,6 +50,73 @@ class ClientRecordContainer {
     }
 }
 
+class Portal5Request {
+    constructor(settings) {
+        this.id = settings.id
+        this.version = settings.version
+        this.prefs = settings.prefs.value
+    }
+    /**
+     *
+     * @param {Request} request
+     * @param {URL} referrer
+     * @param {URL} synthesized
+     */
+    setReferrer(request, referrer, synthesized) {
+        this.mode = request.mode
+        if (referrer) {
+            this.origin = referrer.origin
+            let setReferrer = (part) => (this.referrer = referrer[part])
+            switch (request.referrerPolicy) {
+                case 'no-referrer':
+                    break
+                case 'no-referrer-when-downgrade':
+                    if (synthesized.protocol == referrer.protocol) setReferrer('href')
+                    break
+                case 'origin':
+                    setReferrer('origin')
+                    break
+                case 'origin-when-cross-origin':
+                    if (synthesized.origin != referrer.origin) setReferrer('origin')
+                    else setReferrer('href')
+                    break
+                case 'same-origin':
+                    if (synthesized.origin == referrer.origin) setReferrer('href')
+                    break
+                case 'strict-origin':
+                    if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                    break
+                case 'strict-origin-when-cross-origin':
+                    if (synthesized.origin == referrer.origin) setReferrer('href')
+                    else if (synthesized.protocol == referrer.protocol) setReferrer('origin')
+                    break
+                default:
+                    setReferrer('href')
+                    break
+            }
+        }
+    }
+    /**
+     *
+     * @param {Headers} headers
+     */
+    setHeader(headers, mode) {
+        let p5 = Object.assign({}, this)
+        switch (mode) {
+            case 'secret':
+                delete p5.mode
+                delete p5.origin
+                delete p5.referrer
+                break
+            default:
+                delete p5.id
+                break
+        }
+        delete p5.id
+        headers.set('X-Portal5', JSON.stringify(p5))
+    }
+}
+
 self.clientRecords = new ClientRecordContainer()
 
 self.addEventListener('install', (event) => {
@@ -112,6 +179,7 @@ function rewriteURL(event) {
             }
 
             var { referrer, synthesized, requested } = await synthesizeURL(request, client)
+
             if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
                 return fetch(request.clone())
 
@@ -121,7 +189,11 @@ function rewriteURL(event) {
                 return redirect
             }
 
-            let requestOpts = await makeRequestOptions(request, referrer, synthesized)
+            let requestOpts = await makeRequestOptions(request)
+
+            let p5 = new Portal5Request(settings)
+            p5.setReferrer(request, referrer, synthesized)
+            p5.setHeader(requestOpts.headers)
 
             return fetch(new Request(final.href, requestOpts))
         })()
@@ -200,10 +272,7 @@ async function synthesizeURL(request, client) {
     return { referrer, synthesized, requested }
 }
 
-async function makeRequestOptions(request, referrer, synthesized) {
-    let p5 = new Object()
-    p5.version = self.settings.version
-
+async function makeRequestOptions(request) {
     let headers = new Headers()
     request.headers.forEach((v, k) => headers.append(k, v))
 
@@ -221,42 +290,6 @@ async function makeRequestOptions(request, referrer, synthesized) {
 
     let body = await request.blob()
     if (body.size > 0) requestOpts.body = body
-
-    if (referrer) {
-        let setReferrer = (part) => (p5.referrer = referrer[part])
-        switch (request.referrerPolicy) {
-            case 'no-referrer':
-                break
-            case 'no-referrer-when-downgrade':
-                if (synthesized.protocol == referrer.protocol) setReferrer('href')
-                break
-            case 'origin':
-                setReferrer('origin')
-                break
-            case 'origin-when-cross-origin':
-                if (synthesized.origin != referrer.origin) setReferrer('origin')
-                else setReferrer('href')
-                break
-            case 'same-origin':
-                if (synthesized.origin == referrer.origin) setReferrer('href')
-                break
-            case 'strict-origin':
-                if (synthesized.protocol == referrer.protocol) setReferrer('origin')
-                break
-            case 'strict-origin-when-cross-origin':
-                if (synthesized.origin == referrer.origin) setReferrer('href')
-                else if (synthesized.protocol == referrer.protocol) setReferrer('origin')
-                break
-            default:
-                setReferrer('href')
-                break
-        }
-    }
-
-    if (referrer) p5.origin = referrer.origin
-    p5.mode = request.mode
-
-    headers.set('X-Portal5', JSON.stringify(p5))
 
     return requestOpts
 }

@@ -16,6 +16,7 @@
 
 var output = null
 var domDeferred = []
+const version = '{{ version }}'
 
 function log(msg, fd) {
     if (!fd) fd = console.log
@@ -35,7 +36,7 @@ async function initServiceWorker() {
     if (!navigator.serviceWorker.controller || !registration) {
         try {
             log('await navigator.serviceWorker.register')
-            await navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            await navigator.serviceWorker.register(`/service-worker.${version}.js`, { scope: '/' })
             await waitAndReload()
         } catch (e) {
             log(e, console.error)
