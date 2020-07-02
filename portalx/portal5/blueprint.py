@@ -14,22 +14,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# TODO: settings for rewrites, cookies (httponly), cors, csp, iframe
-
 from functools import wraps
-from urllib.parse import SplitResult, urljoin, unquote
+from urllib.parse import SplitResult, unquote, urljoin
 
-from flask import Blueprint, Request, Response, request, current_app, g, render_template, abort, redirect
+from flask import Blueprint, Request, Response, abort, current_app, g, redirect, render_template, request
 
-from .portal5 import Portal5Request
 from .. import common, security
+from .portal5 import Portal5Request
 
 APPNAME = 'portal5'
 request: Request
 portal5 = Blueprint(
     APPNAME, __name__,
     template_folder='templates', static_folder='static',
-    subdomain=APPNAME, static_url_path=None
+    subdomain=APPNAME, static_url_path=None,
 )
 
 
@@ -81,7 +79,7 @@ def service_worker(version):
     worker_settings = p5.make_worker_settings(request, current_app, g)
     worker = Response(
         render_template(f'{APPNAME}/scripts/service-worker.js', settings=worker_settings),
-        headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript'
+        headers={'Service-Worker-Allowed': '/'}, mimetype='application/javascript',
     )
     return worker
 
@@ -135,7 +133,7 @@ def save_prefs():
 
     res = Response(render_template(
         'portal5/preferences-updated.html',
-        version=p5.get_bitmask()
+        version=p5.get_bitmask(),
     ))
 
     return res

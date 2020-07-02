@@ -16,10 +16,10 @@
 
 from functools import wraps
 from typing import Dict, Union
-from urllib.parse import urlsplit, SplitResult
+from urllib.parse import SplitResult, urlsplit
 
 import requests
-from flask import g, Response
+from flask import Response, g
 from werkzeug.datastructures import MultiDict
 
 from . import common
@@ -76,7 +76,7 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin, r
         'plugin-types', 'sandbox',
         'block-all-mixed-content', 'referrer',
         'require-sri-for', 'require-trusted-types-for',
-        'trusted-types', 'upgrade-insecure-requests'
+        'trusted-types', 'upgrade-insecure-requests',
     }
     adverse_directives = {'report-uri', 'report-to'}
 

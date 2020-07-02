@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections.abc import Hashable, Callable, MutableSet
+from collections.abc import Callable, Hashable, MutableSet
 
 import requests
 
@@ -82,7 +82,7 @@ class RequestFilter(MutableSet):
 
 
 def setup_filters(app):
-    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', list())
+    filter_kwargs = app.config.get('PORTAL_URL_FILTERS', {})
     tests = RequestFilter()
     for kwargs in filter_kwargs:
         tests.add(RequestTest(**kwargs))

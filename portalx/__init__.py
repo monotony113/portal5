@@ -19,7 +19,7 @@ from importlib import import_module
 from pkgutil import iter_modules
 
 from dotenv import load_dotenv
-from flask import Flask, g, request, render_template
+from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import blacklist, config, i18n
@@ -47,7 +47,7 @@ def setup_error_handling(app: Flask):
 def setup_urls(app: Flask):
     app.add_url_rule(
         '/<path:filename>', subdomain='static',
-        endpoint='static', view_func=app.send_static_file
+        endpoint='static', view_func=app.send_static_file,
     )
 
     @app.url_value_preprocessor
@@ -78,7 +78,7 @@ def create_app(*, override=None) -> Flask:
     )
     app.secret_key = secrets.token_urlsafe(20)
     app.config.from_object(config)
-    app.config.from_object(override or dict())
+    app.config.from_object(override or {})
     app.config.from_pyfile('config.py', silent=True)
 
     load_blueprints(app)

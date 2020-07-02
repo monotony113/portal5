@@ -17,11 +17,11 @@
 from operator import attrgetter
 from textwrap import dedent
 from typing import Tuple
-from urllib.parse import urljoin, urlsplit, SplitResult
+from urllib.parse import SplitResult, urljoin, urlsplit
 
 import requests
+from flask import Request, Response, abort, stream_with_context
 from flask_babel import _
-from flask import Request, Response, stream_with_context, abort
 from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.exceptions import HTTPException
 
@@ -53,7 +53,7 @@ def normalize_url(url) -> SplitResult:
 def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
     if requested.scheme not in {'http', 'https'}:
         if not requested.scheme:
-            query = flask_request.query_string.decode("utf8")
+            query = flask_request.query_string.decode('utf8')
             requested = f'https:{requested.geturl()}'
             if query:
                 requested = f'{requested}?{query}'
@@ -134,7 +134,7 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
     remote_url: SplitResult = urlsplit(remote.url)
     cookie_jar = remote.cookies
 
-    cookies = list()
+    cookies = []
     get_cookie_main = attrgetter('name', 'value', 'expires')
     get_cookie_secure = attrgetter('secure')
     get_cookie_rest = attrgetter('_rest')
@@ -150,7 +150,7 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
         cookies.append({
             k: v
             for k, v in dict(
-                zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest])
+                zip(set_cookie_args, [*cookie_main, cookie_path, cookie_domain, cookie_is_secure, *cookie_rest]),
             ).items()
             if v is not None
         })

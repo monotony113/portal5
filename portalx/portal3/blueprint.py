@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from urllib.parse import urljoin, urlsplit, urlunsplit, unquote
+from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
-from flask import Blueprint, Request, current_app, request, g, render_template, redirect, abort
+from flask import Blueprint, Request, abort, current_app, g, redirect, render_template, request
 
 from .. import common
 

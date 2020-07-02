@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from flask import Blueprint, Response, request, stream_with_context, render_template
+from flask import Blueprint, Response, render_template, request, stream_with_context
 
 _debug = Blueprint(
     '_debug', __name__,

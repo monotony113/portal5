@@ -17,7 +17,7 @@
 import json
 import uuid
 from functools import reduce
-from urllib.parse import urlsplit, SplitResult
+from urllib.parse import SplitResult, urlsplit
 
 from flask import Request
 
@@ -33,21 +33,21 @@ class PreferenceMixin(object):
         self.prefs: dict = self.bitmask_to_dict(self.prefs) if self.prefs is not None else FEATURES_DEFAULTS
 
     def print_prefs(self, **kwargs):
-        prefs = dict()
+        prefs = {}
         for k, v in self.prefs.items():
-            option = dict()
+            option = {}
             option['enabled'] = v
             option.update({k_: v for k_, v in FEATURES_TEXTS.get(k, dict(name=k)).items()})
             if 'desc' in option:
                 option['desc'] = [line % kwargs for line in option['desc']]
-            section = prefs.setdefault(k.split('_')[0], dict())
+            section = prefs.setdefault(k.split('_')[0], {})
             section[k] = option
         return prefs
 
     def make_client_prefs(self):
         prefs = dict(
             value=self.get_bitmask(),
-            local={FEATURES_KEYS[k]: self.prefs[FEATURES_KEYS[k]] for k in FEATURES_CLIENT_SPECIFIC}
+            local={FEATURES_KEYS[k]: self.prefs[FEATURES_KEYS[k]] for k in FEATURES_CLIENT_SPECIFIC},
         )
         return dict(prefs=prefs)
 
@@ -110,14 +110,14 @@ class URLPassthruSettingsMixin(object):
             'passthru': dict(
                 domains={k: True for k in {g.sld} | sibling_domains | passthru_domains},
                 urls={k: True for k in passthru_urls},
-            )
+            ),
         }
 
 
 class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
     __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin'
 
-    VERSION = 4
+    VERSION = 5
 
     HEADER = 'X-Portal5'
     SETTINGS_ENDPOINT = '/settings'
@@ -126,7 +126,7 @@ class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
         try:
             fetch = json.loads(request.headers.get(self.HEADER, '{}'))
         except Exception:
-            fetch = dict()
+            fetch = {}
 
         for k in self.__slots__:
             if not hasattr(self, k):
@@ -176,7 +176,7 @@ class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
     def make_worker_settings(self, request, app, g):
         settings = {**self.make_passthru_settings(app, g), **self.make_client_prefs()}
 
-        restricted = settings.setdefault('restricted', dict())
+        restricted = settings.setdefault('restricted', {})
         restricted.update({k: True for k in [self.SETTINGS_ENDPOINT]})
 
         settings['id'] = uuid.uuid4()

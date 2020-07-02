@@ -16,6 +16,8 @@
 
 /* eslint-env serviceworker */
 
+const noop = () => {}
+
 self.destinationRequiresRedirect = {
     document: true,
     embed: true,
@@ -59,8 +61,10 @@ class Portal5Request {
      * @param {URL} referrer
      * @param {URL} synthesized
      */
-    setReferrer(request, referrer, synthesized) {
+    setReferrer(request, synthesized) {
         this.mode = request.mode
+        let referrer = synthesized.referrer
+        synthesized = synthesized.url
         if (referrer) {
             this.origin = referrer.origin
             let setReferrer = (part) => (this.referrer = referrer[part])
@@ -172,12 +176,26 @@ function rewriteURL(event) {
                 if (windows) client = windows[0]
             }
 
-            var { referrer, synthesized, requested } = await synthesizeURL(request, client)
+            let requested = new URL(request.url)
+            let referrer
+            try {
+                referrer = new URL(request.referrer)
+            } catch (e) {
+                noop()
+            }
 
-            if (synthesized.hostname in settings.passthru.domains || synthesized.href in settings.passthru.urls)
+            if (!settings.prefs.local['basic_rewrite_crosssite'] && self.server != requested.origin)
                 return fetch(request.clone())
 
-            let final = synthesized.origin != self.server ? new URL(self.server + '/' + synthesized.href) : synthesized
+            var synthesized = await synthesizeURL(requested, referrer, client, self.clientRecords, self.server)
+
+            if (synthesized.url.hostname in settings.passthru.domains || synthesized.url.href in settings.passthru.urls)
+                return fetch(request.clone())
+
+            let final =
+                synthesized.url.origin != self.server
+                    ? new URL(self.server + '/' + synthesized.url.href)
+                    : synthesized.url
             if (final.href != requested.href && request.destination in self.destinationRequiresRedirect) {
                 let redirect = new Response('', { status: 307, headers: { Location: final.href } })
                 return redirect
@@ -186,35 +204,42 @@ function rewriteURL(event) {
             let requestOpts = await makeRequestOptions(request)
 
             let p5 = new Portal5Request(settings)
-            p5.setReferrer(request, referrer, synthesized)
+            p5.setReferrer(request, synthesized)
             p5.setHeader(requestOpts.headers)
 
-            return fetch(new Request(final.href, requestOpts))
+            let response = await fetch(new Request(final.href, requestOpts))
+            return response
         })()
     )
 }
 
 /**
  *
- * @param {Request} request
+ * @param {URL} requested
+ * @param {URL} referrer
  * @param {Client} client
+ * @param {ClientRecordContainer} savedClients
+ * @param {String} prefix
  */
-async function synthesizeURL(request, client) {
+async function synthesizeURL(requested, referrer, client, savedClients, prefix) {
     let location = null
     let represented = null
-    let referrer = null
-    let requested = new URL(request.url)
-    let synthesized = new URL('http://example.org')
+    let synthesized = {
+        referrer: null,
+        url: new URL('http://example.org'),
+    }
 
     if (client) {
         location = new URL(client.url)
         try {
             represented = new URL(location.pathname.substr(1))
         } catch (e) {
-            let stored = self.clientRecords.get(client.id)
-            if (stored) {
-                represented = new URL(stored.represented)
-                represented.pathname = location.pathname
+            if (savedClients) {
+                let stored = savedClients.get(client.id)
+                if (stored) {
+                    represented = new URL(stored.represented)
+                    represented.pathname = location.pathname
+                }
             }
         }
         if (represented) {
@@ -223,19 +248,18 @@ async function synthesizeURL(request, client) {
         }
     }
 
-    if (represented) self.clientRecords.add(client.id, represented.href)
+    if (savedClients && represented) savedClients.add(client.id, represented.href)
 
-    if (request.referrer) {
-        let referrerURL = new URL(request.referrer)
+    if (referrer) {
         try {
-            referrer = new URL(referrerURL.pathname.substr(1))
-            referrer.search = referrerURL.search
-            referrer.hash = referrerURL.hash
+            synthesized.referrer = new URL(referrer.pathname.substr(1))
+            synthesized.referrer.search = referrer.search
+            synthesized.referrer.hash = referrer.hash
         } catch (e) {
             if (represented) {
-                referrer = referrerURL
-                referrer.protocol = represented.protocol
-                referrer.host = represented.host
+                synthesized.referrer = referrer
+                synthesized.referrer.protocol = represented.protocol
+                synthesized.referrer.host = represented.host
             }
         }
     }
@@ -243,31 +267,31 @@ async function synthesizeURL(request, client) {
     if (!represented) represented = referrer
     if (!referrer) referrer = represented
 
-    if (self.server != requested.origin) {
-        synthesized = new URL(requested)
+    if (prefix != requested.origin) {
+        synthesized.url = new URL(requested)
     } else {
         try {
-            synthesized = new URL(requested.pathname.substr(1))
+            synthesized.url = new URL(requested.pathname.substr(1))
         } catch (e) {
-            if (referrer) {
-                synthesized = new URL(referrer)
+            if (synthesized.referrer) {
+                synthesized.url = new URL(synthesized.referrer)
             } else {
-                synthesized = new URL(self.server)
+                synthesized.url = new URL(prefix)
             }
-            synthesized.pathname = requested.pathname
+            synthesized.url.pathname = requested.pathname
         }
     }
 
-    synthesized.search = requested.search
-    synthesized.hash = requested.hash
+    synthesized.url.search = requested.search
+    synthesized.url.hash = requested.hash
 
     try {
-        synthesized = new URL(trimPrefix(synthesized.href, self.server + '/'), self.server)
+        synthesized.url = new URL(trimPrefix(synthesized.url.href, prefix + '/'), prefix)
     } catch (e) {
-        console.warn(e)
+        noop()
     }
 
-    return { referrer, synthesized, requested }
+    return synthesized
 }
 
 async function makeRequestOptions(request) {
