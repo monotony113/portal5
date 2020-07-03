@@ -15,52 +15,145 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /* eslint-env serviceworker */
+/* global parse5 */
 
 const noop = () => {}
 
-self.destinationRequiresRedirect = {
-    document: true,
-    embed: true,
-    object: true,
-    script: true,
-    style: true,
-    worker: true,
+// Tools
+class Utils {
+    static async makeRequestOptions(request) {
+        let headers = new Headers()
+        request.headers.forEach((v, k) => headers.append(k, v))
+
+        let requestOpts = {
+            method: request.method,
+            headers: headers,
+            credentials: request.credentials,
+            cache: request.cache,
+            redirect: request.redirect,
+            integrity: request.integrity,
+            referrer: '',
+            referrerPolicy: request.referrerPolicy,
+            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
+        }
+
+        let body = await request.blob()
+        if (body.size > 0) requestOpts.body = body
+
+        return requestOpts
+    }
+
+    static recursivelyTransform(tree, transform, childContainer) {
+        transform(tree)
+        if (tree[childContainer])
+            tree[childContainer].forEach((branch) => Utils.recursivelyTransform(branch, transform, childContainer))
+    }
+
+    static trimPrefix(str, prefix) {
+        if (str.startsWith(prefix)) return Utils.trimPrefix(str.substr(prefix.length), prefix)
+        return str
+    }
 }
 
-class ClientRecordContainer {
-    constructor() {
-        setInterval(this.trim, 300000)
+class URLRewriteLib {
+    static async synthesizeURL(requested, referrer, client, savedClients, prefix) {
+        let location = null
+        let represented = null
+        let synthesized = {
+            referrer: null,
+            url: new URL('http://example.org'),
+        }
+
+        if (client) {
+            location = new URL(client.url)
+            try {
+                represented = new URL(location.pathname.substr(1))
+            } catch (e) {
+                if (savedClients) {
+                    let stored = savedClients.get(client.id)
+                    if (stored) {
+                        represented = new URL(stored.represented)
+                        represented.pathname = location.pathname
+                    }
+                }
+            }
+            if (represented) {
+                represented.search = location.search
+                represented.hash = location.hash
+            }
+        }
+
+        if (savedClients && represented) savedClients.add(client.id, represented.href)
+
+        if (referrer) {
+            try {
+                synthesized.referrer = new URL(referrer.pathname.substr(1))
+                synthesized.referrer.search = referrer.search
+                synthesized.referrer.hash = referrer.hash
+            } catch (e) {
+                if (represented) {
+                    synthesized.referrer = referrer
+                    synthesized.referrer.protocol = represented.protocol
+                    synthesized.referrer.host = represented.host
+                }
+            }
+        }
+
+        if (!represented) represented = referrer
+        if (!referrer) referrer = represented
+
+        if (prefix != requested.origin) {
+            synthesized.url = new URL(requested)
+        } else {
+            try {
+                synthesized.url = new URL(requested.pathname.substr(1))
+            } catch (e) {
+                if (synthesized.referrer) {
+                    synthesized.url = new URL(synthesized.referrer)
+                } else {
+                    synthesized.url = new URL(prefix)
+                }
+                synthesized.url.pathname = requested.pathname
+            }
+        }
+
+        synthesized.url.search = requested.search
+        synthesized.url.hash = requested.hash
+
+        try {
+            synthesized.url = new URL(Utils.trimPrefix(synthesized.url.href, prefix + '/'), prefix)
+        } catch (e) {
+            noop()
+        }
+
+        return synthesized
     }
-    add(id, url) {
-        this['client:' + id] = { represented: url, atime: Date.now() }
-    }
-    get(id) {
-        return this['client:' + id]
-    }
-    remove(id) {
-        delete this['client:' + id]
-    }
-    async trim() {
-        await Promise.all(
-            Object.keys(this)
-                .filter((k) => k.substr(0, 7) == 'client:')
-                .map(async (k) => [k, await clients.get(k.substr(7))])
-        ).then((r) => r.filter((r) => !r[1]).forEach((r) => delete this[r[0]]))
+
+    static rewriteURLAttributes(node, server, base) {
+        console.log(node)
+        if (!node.attrs) return
+        const target = { href: true, src: true, 'data-href': true, 'data-src': true }
+        node.attrs.forEach((attr) => {
+            if (attr.name in target)
+                try {
+                    let url = new URL(attr.value, base)
+                    let derived = new URL(server)
+                    derived.pathname = '/' + url.href
+                    attr.value = derived.href
+                } catch (e) {
+                    noop()
+                }
+        })
     }
 }
 
+// Containers
 class Portal5Request {
     constructor(settings) {
         this.id = settings.id
         this.version = settings.version
         this.prefs = settings.prefs.value
     }
-    /**
-     *
-     * @param {Request} request
-     * @param {URL} referrer
-     * @param {URL} synthesized
-     */
     setReferrer(request, synthesized) {
         this.mode = request.mode
         let referrer = synthesized.referrer
@@ -97,11 +190,7 @@ class Portal5Request {
             }
         }
     }
-    /**
-     *
-     * @param {Headers} headers
-     */
-    setHeader(headers, mode) {
+    writeHeader(headers, mode) {
         let p5 = Object.assign({}, this)
         switch (mode) {
             case 'secret':
@@ -115,23 +204,60 @@ class Portal5Request {
         }
         headers.set('X-Portal5', JSON.stringify(p5))
     }
+    static async rewriteResponse(response, prefix, base) {
+        let contentType = response.headers.get('Content-Type')
+        if (contentType && contentType.startsWith('text/html')) {
+            try {
+                let text = await response.text()
+                let body = null
+                if (text.length) {
+                    let document = parse5.parse(text)
+                    Utils.recursivelyTransform(
+                        document,
+                        (node) => {
+                            URLRewriteLib.rewriteURLAttributes(node, prefix, base)
+                        },
+                        'childNodes'
+                    )
+                    body = parse5.serialize(document)
+                }
+                let res = new Response(body, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers,
+                })
+                return res
+            } catch (e) {
+                noop()
+            }
+        }
+        return response
+    }
 }
 
-self.settings = JSON.parse('{{ settings|tojson }}')
-self.server = self.settings.protocol + '://' + self.settings.host
-self.clientRecords = new ClientRecordContainer()
+class ClientRecordContainer {
+    constructor() {
+        setInterval(this.trim, 300000)
+    }
+    add(id, url) {
+        this['client:' + id] = { represented: url, atime: Date.now() }
+    }
+    get(id) {
+        return this['client:' + id]
+    }
+    remove(id) {
+        delete this['client:' + id]
+    }
+    async trim() {
+        await Promise.all(
+            Object.keys(this)
+                .filter((k) => k.substr(0, 7) == 'client:')
+                .map(async (k) => [k, await clients.get(k.substr(7))])
+        ).then((r) => r.filter((r) => !r[1]).forEach((r) => delete this[r[0]]))
+    }
+}
 
-self.addEventListener('install', (event) => {
-    event.waitUntil(skipWaiting())
-})
-
-self.addEventListener('activate', (event) => {
-    event.waitUntil(clients.claim())
-})
-
-self.addEventListener('fetch', requiresAuthorization)
-self.addEventListener('fetch', rewriteURL)
-
+// Handlers
 function requiresAuthorization(event) {
     /** @type {Request} */
     let request = event.request
@@ -144,7 +270,7 @@ function requiresAuthorization(event) {
 
         let headers = new Headers()
         let p5 = new Portal5Request(self.settings)
-        p5.setHeader(headers, 'secret')
+        p5.writeHeader(headers, 'secret')
 
         event.respondWith(
             (async () => {
@@ -162,7 +288,7 @@ function requiresAuthorization(event) {
     }
 }
 
-function rewriteURL(event) {
+function rewriteRequest(event) {
     event.respondWith(
         (async () => {
             /** @type {Request} */
@@ -187,7 +313,13 @@ function rewriteURL(event) {
             if (!settings.prefs.local['basic_rewrite_crosssite'] && self.server != requested.origin)
                 return fetch(request.clone())
 
-            var synthesized = await synthesizeURL(requested, referrer, client, self.clientRecords, self.server)
+            var synthesized = await URLRewriteLib.synthesizeURL(
+                requested,
+                referrer,
+                client,
+                self.clientRecords,
+                self.server
+            )
 
             if (synthesized.url.hostname in settings.passthru.domains || synthesized.url.href in settings.passthru.urls)
                 return fetch(request.clone())
@@ -201,122 +333,45 @@ function rewriteURL(event) {
                 return redirect
             }
 
-            let requestOpts = await makeRequestOptions(request)
+            let requestOpts = await Utils.makeRequestOptions(request)
 
             let p5 = new Portal5Request(settings)
             p5.setReferrer(request, synthesized)
-            p5.setHeader(requestOpts.headers)
+            p5.writeHeader(requestOpts.headers)
 
-            let response = await fetch(new Request(final.href, requestOpts))
-            return response
+            let outbound = new Request(final.href, requestOpts)
+
+            if (settings.prefs.local['experimental_client_side_rewrite']) {
+                let response = await fetch(outbound)
+                return await Portal5Request.rewriteResponse(response, self.server, synthesized.url)
+            }
+            return fetch(outbound)
         })()
     )
 }
 
-/**
- *
- * @param {URL} requested
- * @param {URL} referrer
- * @param {Client} client
- * @param {ClientRecordContainer} savedClients
- * @param {String} prefix
- */
-async function synthesizeURL(requested, referrer, client, savedClients, prefix) {
-    let location = null
-    let represented = null
-    let synthesized = {
-        referrer: null,
-        url: new URL('http://example.org'),
-    }
-
-    if (client) {
-        location = new URL(client.url)
-        try {
-            represented = new URL(location.pathname.substr(1))
-        } catch (e) {
-            if (savedClients) {
-                let stored = savedClients.get(client.id)
-                if (stored) {
-                    represented = new URL(stored.represented)
-                    represented.pathname = location.pathname
-                }
-            }
-        }
-        if (represented) {
-            represented.search = location.search
-            represented.hash = location.hash
-        }
-    }
-
-    if (savedClients && represented) savedClients.add(client.id, represented.href)
-
-    if (referrer) {
-        try {
-            synthesized.referrer = new URL(referrer.pathname.substr(1))
-            synthesized.referrer.search = referrer.search
-            synthesized.referrer.hash = referrer.hash
-        } catch (e) {
-            if (represented) {
-                synthesized.referrer = referrer
-                synthesized.referrer.protocol = represented.protocol
-                synthesized.referrer.host = represented.host
-            }
-        }
-    }
-
-    if (!represented) represented = referrer
-    if (!referrer) referrer = represented
-
-    if (prefix != requested.origin) {
-        synthesized.url = new URL(requested)
-    } else {
-        try {
-            synthesized.url = new URL(requested.pathname.substr(1))
-        } catch (e) {
-            if (synthesized.referrer) {
-                synthesized.url = new URL(synthesized.referrer)
-            } else {
-                synthesized.url = new URL(prefix)
-            }
-            synthesized.url.pathname = requested.pathname
-        }
-    }
-
-    synthesized.url.search = requested.search
-    synthesized.url.hash = requested.hash
-
-    try {
-        synthesized.url = new URL(trimPrefix(synthesized.url.href, prefix + '/'), prefix)
-    } catch (e) {
-        noop()
-    }
-
-    return synthesized
+self.destinationRequiresRedirect = {
+    document: true,
+    embed: true,
+    object: true,
+    script: true,
+    style: true,
+    worker: true,
 }
 
-async function makeRequestOptions(request) {
-    let headers = new Headers()
-    request.headers.forEach((v, k) => headers.append(k, v))
+self.settings = JSON.parse('{{ settings|tojson }}')
+self.server = self.settings.protocol + '://' + self.settings.host
+self.clientRecords = new ClientRecordContainer()
 
-    let requestOpts = {
-        method: request.method,
-        headers: headers,
-        credentials: request.credentials,
-        cache: request.cache,
-        redirect: request.redirect,
-        integrity: request.integrity,
-        referrer: '',
-        referrerPolicy: request.referrerPolicy,
-        mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
-    }
+self.addEventListener('install', (event) => {
+    event.waitUntil(skipWaiting())
+})
 
-    let body = await request.blob()
-    if (body.size > 0) requestOpts.body = body
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim())
+})
 
-    return requestOpts
-}
+self.addEventListener('fetch', requiresAuthorization)
+self.addEventListener('fetch', rewriteRequest)
 
-function trimPrefix(str, prefix) {
-    if (str.startsWith(prefix)) return trimPrefix(str.substr(prefix.length), prefix)
-    return str
-}
+if (self.settings.prefs.local['experimental_client_side_rewrite']) importScripts('/bundle.min.js')

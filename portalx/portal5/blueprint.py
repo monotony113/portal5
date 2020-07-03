@@ -55,6 +55,12 @@ def favicon():
     return portal5.send_static_file('favicon.ico')
 
 
+@portal5.route('/bundle.min.js')
+@security.access_control_allow_origin('*')
+def bundle():
+    return portal5.send_static_file('bundle.min.js')
+
+
 @portal5.route('/install-worker')
 def install_worker():
     return render_template(f'{APPNAME}/install-worker.html')
