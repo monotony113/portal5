@@ -130,7 +130,6 @@ class URLRewriteLib {
     }
 
     static rewriteURLAttributes(node, server, base) {
-        console.log(node)
         if (!node.attrs) return
         const target = { href: true, src: true, 'data-href': true, 'data-src': true }
         node.attrs.forEach((attr) => {
@@ -298,7 +297,9 @@ function rewriteRequest(event) {
             var client = await clients.get(event.clientId || event.replacesClientId)
             if (!client && 'clients' in self && 'matchAll' in clients) {
                 let windows = await clients.matchAll({ type: 'window' })
-                windows = windows.filter((w) => w.url == request.referrer)
+                windows = windows.filter(
+                    (w) => w.url == request.referrer || w.focused || w.visibilityState == 'visible'
+                )
                 if (windows) client = windows[0]
             }
 
