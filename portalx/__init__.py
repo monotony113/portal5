@@ -31,9 +31,10 @@ def load_blueprints(app: Flask):
     for importer, name, ispkg in iter_modules(__path__):
         if ispkg:
             module_ = import_module(f'.{name}', __name__)
-            bp = getattr(module_, 'bp', None)
+            bp = getattr(module_, 'BLUEPRINT', None)
             if bp:
-                app.register_blueprint(bp)
+                for blueprint in bp:
+                    app.register_blueprint(blueprint)
 
 
 def setup_error_handling(app: Flask):

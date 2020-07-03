@@ -142,3 +142,4 @@ dmypy.json
 node_modules
 
 *.min.js
+.eslintrc.js

@@ -7,25 +7,31 @@
     <h1><code>portal3</code></h1>
 
     <p>A portal to the World<a href="#ps"><sup>*</sup></a> Wide Web, man-in-the-middle style.</p>
-    <p>This website tries to load another webpage for you, even if that webpage is otherwise not accessible where you are (e.g. due to internet censorship).</p>
+    <p>This website tries to load another webpage for you, even if that webpage is otherwise not accessible where you
+        are (e.g. due to internet censorship).</p>
 
     <h2>Try it out</h2>
 
     <blockquote>
         <pre><code><strong><mark><a href="{{ server }}/https://www.google.com" target="_blank">{{ server }}/https://www.google.com</a></mark></strong></code></pre>
     </blockquote>
-    <p>The above URL will load Google's frontpage in a new tab/window, even if you are in a location where Google is not accessible.</p>
-    <p>You will notice that the domain part of the page's URL stays at <strong><code>{{ request.host }}</code></strong>. Google's search function will be working. Doing a search also doesn't change the page's domain. You will leave <strong><code>{{ request.host }}</code></strong> when you click on any of the search results.</p>
+    <p>The above URL will load Google's frontpage in a new tab/window, even if you are in a location where Google is not
+        accessible.</p>
+    <p>You will notice that the domain part of the page's URL stays at <strong><code>{{ request.host }}</code></strong>.
+        Google's search function will be working. Doing a search also doesn't change the page's domain. You will leave
+        <strong><code>{{ request.host }}</code></strong> when you click on any of the search results.</p>
 
     <h2>Usage</h2>
 
     <p>In your browser, visit</p>
     <pre class="text-center-aligned"><code>{{ server }}/<em>&lt;url&gt;</em></code></pre>
     <p>where <code><em>&lt;url&gt;</em></code> is the URL to the actual webpage you'd like to visit.</p>
-    <p>For example, if you are trying to visit <code>https://example.org</code>, visit <code>{{ server }}/https://example.org</em></code>
+    <p>For example, if you are trying to visit <code>https://example.org</code>, visit
+        <code>{{ server }}/https://example.org</em></code>
     </pre>
     </p>
-    <p>You <strong>must</strong> include the URL protocol in your request. That is, your URL must begin with <code>https:</code> or <code>http:</code>.</p>
+    <p>You <strong>must</strong> include the URL protocol in your request. That is, your URL must begin with
+        <code>https:</code> or <code>http:</code>.</p>
 
     <p>It also supports other HTTP methods, such as <code>POST</code>:</p>
     <blockquote>
@@ -34,46 +40,69 @@
 
     <h2>Design</h2>
 
-    <p>This website works simply by first fetching the URL and then delivering the content to you. It is a proxy but with a much limited use.</p>
-    <p>If you are visiting a webpage, then to preserve the functionality of the page as much as possible, it also makes the effort to resolve relative URLs, rewrite HTTP 3xx redirects, and modify cookies that specify domains/paths.</p>
+    <p>This website works simply by first fetching the URL and then delivering the content to you. It is a proxy but
+        with a much limited use.</p>
+    <p>If you are visiting a webpage, then to preserve the functionality of the page as much as possible, it also makes
+        the effort to resolve relative URLs, rewrite HTTP 3xx redirects, and modify cookies that specify domains/paths.
+    </p>
 
     <h2>Caveats</h2>
 
     <p><strong>Because of the hacky nature of this tool, many things will break:</strong></p>
     <ul>
         <li>
-            <strong>Requests to other domains</strong> will not go through this server by design. The requests fired by your browser go directly to their domains.
+            <strong>Requests to other domains</strong> will not go through this server by design. The requests fired by
+            your browser go directly to their domains.
             <ul>
-                <li>This applies even to requests that are actually on the same domain, if the link has the domain name hard-coded into it.</li>
+                <li>This applies even to requests that are actually on the same domain, if the link has the domain name
+                    hard-coded into it.</li>
                 <li>
-                    Likewise, if you click on a link that specifies a domain, you will leave this website. You can instead copy the URL first then visit it prefixed with the URL to this page (see usage).
+                    Likewise, if you click on a link that specifies a domain, you will leave this website. You can
+                    instead copy the URL first then visit it prefixed with the URL to this page (see usage).
                 </li>
             </ul>
         </li>
         <li>
-            Any <strong><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS" target="_blank">CORS request</a></strong> with an <code><strong><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin" target="_blank">Access-Control-Allow-Origin</a></strong></code> header set to anything other than <code>*</code> or not set will be blocked.
+            Any <strong><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS" target="_blank">CORS
+                    request</a></strong> with an <code><strong><a
+                        href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin"
+                        target="_blank">Access-Control-Allow-Origin</a></strong></code> header set to anything other
+            than <code>*</code> or not set will be blocked.
             <ul>
                 <li>Single-page applications that rely heavily on JavaScript APIs likely will not work at all.</li>
             </ul>
         </li>
         <li>
-            Resources protected by <strong><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP" target="_blank">Content Security Policy (CSP)</a></strong> will be blocked.
+            Resources protected by <strong><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP"
+                    target="_blank">Content Security Policy (CSP)</a></strong> will be blocked.
         </li>
         <li>
-            Sites that rely on <strong>cookies</strong> may behave strangely, because cookies that are otherwise stored under different domains are now stored under the same domain, and they may interfere with each other.
+            Sites that rely on <strong>cookies</strong> may behave strangely, because cookies that are otherwise stored
+            under different domains are now stored under the same domain, and they may interfere with each other.
         </li>
     </ul>
 
-    <p>Additionally, while this website does not store, decode, or modify the requested contents (the <code>body</code>), and raw data received from the destination is directly piped, it does have to decrypt the data first, if you are visiting a page through HTTPS, and the re-encrypt it before sending it to you. That is to say, this website do <strong>have access</strong> to the unencrypted data you are receiving.</p>
-    <p>That is also to say, the content delivered to your browser is no longer signed by the website you are trying to visit, but is instead signed by this website (<code>{{ server }}</code>). <mark>You should never trust any data delivered to you in this manner.</mark></p>
+    <p>Additionally, while this website does not store, decode, or modify the requested contents (the
+        <code>body</code>), and raw data received from the destination is directly piped, it does have to decrypt the
+        data first, if you are visiting a page through HTTPS, and the re-encrypt it before sending it to you. That is to
+        say, this website do <strong>have access</strong> to the unencrypted data you are receiving.</p>
+    <p>That is also to say, the content delivered to your browser is no longer signed by the website you are trying to
+        visit, but is instead signed by this website (<code>{{ server }}</code>). <mark>You should never trust any data
+            delivered to you in this manner.</mark></p>
 
     <h2>Why?</h2>
     <p>Trying to creatively circumvent internet censorship.</p>
 
     <h2>Disclaimer</h2>
-    <p>This is an experiment that I did that came out of the desire to have unrestricted internet access. It started off as a simple script that only transports HTTP content directly, but then I pushed to see how much an HTML webpage can still function when loaded this way.</p>
-    <p>If you are playing with this tool, avoid entering any sensitive data such as passwords and credit card info, because in the event where your browser did not block the transferring of such info, they <strong>will</strong> be decrypted on my server.</p>
-    <p>If you decide to host this on your own domain, be advised that there are mechanisms (such as CSP reports) to detect malicious forgeries that this tool is doing — your domain could be reported to the websites from whom your server is requesting data.</p>
+    <p>This is an experiment that I did that came out of the desire to have unrestricted internet access. It started off
+        as a simple script that only transports HTTP content directly, but then I pushed to see how much an HTML webpage
+        can still function when loaded this way.</p>
+    <p>If you are playing with this tool, avoid entering any sensitive data such as passwords and credit card info,
+        because in the event where your browser did not block the transferring of such info, they <strong>will</strong>
+        be decrypted on my server.</p>
+    <p>If you decide to host this on your own domain, be advised that there are mechanisms (such as CSP reports) to
+        detect malicious forgeries that this tool is doing — your domain could be reported to the websites from whom
+        your server is requesting data.</p>
 
     <h2>Source code</h2>
     <p><a href="https://github.com/monotony113/archived_webservice" target="_blank">GitHub</a></p>

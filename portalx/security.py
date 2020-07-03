@@ -19,7 +19,7 @@ from typing import Dict, Union
 from urllib.parse import SplitResult, urlsplit
 
 import requests
-from flask import Response, g
+from flask import Response, abort, g, request
 from werkzeug.datastructures import MultiDict
 
 from . import common
@@ -42,6 +42,44 @@ def access_control_allow_origin(origin):
             out.headers['Access-Control-Allow-Origin'] = origin
             return out
         return postprocess
+    return wrapper
+
+
+def csp_no_frame_ancestor(view_func):
+    @wraps(view_func)
+    def postprocess(*args, **kwargs):
+        out = common.ensure_response(view_func(*args, **kwargs))
+        out.headers.add('X-Frame-Options', 'DENY')
+        out.headers.add('Content-Security-Policy', "frame-ancestors 'none';")
+        return out
+    return postprocess
+
+
+def csp_directives(*directives):
+    def wrapper(view_func):
+        @wraps(view_func)
+        def postprocess(*args, **kwargs):
+            out = common.ensure_response(view_func(*args, **kwargs))
+            out.headers['Content-Security-Policy'] = '; '.join(directives)
+            return out
+        return postprocess
+    return wrapper
+
+
+def allow_referrer(*urls, allow_self=True, samesite=True):
+    urls = set(urls)
+
+    def wrapper(view_func):
+        @wraps(view_func)
+        def guard(*args, **kwargs):
+            if allow_self and request.referrer == request.url:
+                return view_func(*args, **kwargs)
+            referrer = urlsplit(request.referrer)
+            referrer = referrer.path if samesite else referrer.geturl()
+            if referrer not in urls:
+                abort(403)
+            return view_func(*args, **kwargs)
+        return guard
     return wrapper
 
 

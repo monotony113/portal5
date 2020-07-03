@@ -1,0 +1,27 @@
+// update.js
+// Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+const variant = '{{ variant }}'
+window.addEventListener('load', () => history.replaceState('', document.title, '/settings'))
+window.addEventListener('load', async () => {
+    if ('serviceWorker' in navigator) {
+        let registration = await navigator.serviceWorker.getRegistration()
+        await registration.unregister()
+        await navigator.serviceWorker.register(`/~/service-worker.${variant}.js`, { scope: '/' })
+        history.pushState('', document.title, '#updated')
+        window.location.reload()
+    }
+})

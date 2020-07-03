@@ -47,7 +47,12 @@
 {% block body %}
 <main>
     <article>
-        <h1><code>HTTP <span class="color-ulysses-magenta-fg"><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{{ statuscode }}" target="_blank">{{ statuscode }}</a></span> {{ text }}</code></h1>
+        <h1><code>HTTP
+                <span class="color-ulysses-magenta-fg">
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/{{ statuscode }}"
+                        target="_blank">{{ statuscode }}</a>
+                </span> {{ text }}
+            </code></h1>
         {% if message %}
         <p>{{ message }}</p>
         {% endif %}

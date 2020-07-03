@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 {% set server = request.scheme + '://' + request.host %}
+{% set static_server = request.scheme + '://' + 'static.' + g.sld %}
 
 <head>
     {% block meta %}
@@ -8,14 +9,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="referrer" content="same-origin">
+    {% endblock %}
+
+    {% block csp %}
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; font-src fonts.gstatic.com; style-src 'self' {{ static_server }} fonts.googleapis.com;">
     {% endblock %}
 
     <title>{{ title|default('', true) }}</title>
 
     {% block styles %}
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
-    <link href="//static.{{ g.sld }}/styles/fonts-cjk-no-latin.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="//static.{{ g.sld }}/styles/style.css" />
+    <link rel="stylesheet" href="{{ static_server }}/styles/style.css">
+    <link rel="stylesheet" href="{{ static_server }}/styles/fonts-cjk-no-latin.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap">
     {% endblock %}
 
     {% block scripts %}

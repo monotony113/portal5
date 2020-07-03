@@ -4,140 +4,11 @@
 
 {% block styles %}
 {{ super() }}
-<style>
-    h5 {
-        margin: 0;
-        display: flex;
-        margin: 0 5pt 0;
-    }
-
-    button {
-        border: none;
-        margin: 0;
-        text-align: center;
-        vertical-align: middle;
-        font-family: 'Fira Code', monospace;
-        font-weight: 700;
-        flex-shrink: 0;
-        cursor: pointer;
-        height: 1.4rem;
-        width: 3rem;
-        font-size: 12pt;
-    }
-
-    label {
-        display: inline-block;
-        cursor: pointer;
-    }
-
-    .option {
-        display: flex;
-        width: 100%;
-        flex-direction: row;
-        justify-content: space-between;
-        margin: 1rem 0 0 0;
-    }
-
-    .option-row {
-        display: flex;
-        width: 100%;
-        flex-direction: column;
-    }
-
-    .option-description {
-        margin: 0 0 0 1.5rem;
-    }
-
-    .option-bullet {
-        display: inline-block;
-        margin: 0 5pt auto 0;
-    }
-
-    .rotate-90d {
-        transform: rotate(90deg);
-    }
-
-    .collapsed {
-        display: none;
-    }
-
-    .form-footer {
-        display: flex;
-        justify-content: flex-end;
-        margin: 2rem 0 0.5rem 0;
-    }
-
-    .form-footer button {
-        width: initial;
-        height: 2rem;
-        font-size: 16pt;
-    }
-
-    .form-footer p {
-        margin: 0 1rem 0 0;
-    }
-
-    .form-postscript {
-        display: flex;
-        align-items: flex-end;
-        flex-flow: column;
-    }
-
-    .form-postscript * {
-        width: max-content;
-    }
-
-    .form-postscript h6 {
-        margin: 0.5rem 0;
-        text-align: end;
-    }
-
-    #updated {
-        display: none;
-    }
-
-    #updated:target {
-        display: initial;
-    }
-
-    br {
-        margin-top: 1rem;
-    }
-</style>
+<link rel="stylesheet" href="/~/static/styles/preferences.css">
 {% endblock %}
 
 {% block scripts %}
-<script>
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            history.pushState('', document.title, window.location.pathname + window.location.search)
-        }, 5000)
-        document.querySelectorAll('label').forEach((l) => {
-            l.addEventListener('click', (ev) => {
-                const label = ev.target
-                const option = label.closest('.option-row')
-                const description = option.querySelector('.option-description')
-                description.classList.toggle('collapsed')
-                option.querySelector('.option-bullet').classList.toggle('rotate-90d')
-            })
-        })
-        document.querySelectorAll('.toggle-button').forEach((btn) => {
-            btn.addEventListener('click', (ev) => {
-                const button = ev.target
-                const option = button.closest('.option-row')
-                const input = option.querySelector('input')
-                let value = input.value ^ 1
-                if (value) {
-                    button.classList.replace('color-gray-bg', `color-${button.dataset.color}-bg`)
-                } else {
-                    button.classList.replace(`color-${button.dataset.color}-bg`, 'color-gray-bg')
-                }
-                button.textContent = value ? 'on' : 'off'
-                input.value = value
-            })
-        })
-    });
-</script>
+<script src="/~/scripts/responsive/preferences.js"></script>
 {% endblock %}
 
 {% block main %}
@@ -150,13 +21,19 @@
     {% for option_id, details in options.items() %}
     {% set color = details.color|default('green') %}
 
-    <div id="{{ option_id|replace('_', '-') }}" class="option-row">
+    <div id="{{ option_id|replace('_', '-') }}" class="option-container">
         <div class="option">
             <input type="hidden" name="{{ option_id }}" value="{{ details.enabled|int }}" />
             <h5><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
-            <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg" data-color="{{ color }}">
+            <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg"
+                data-color="{{ color }}">
                 {{- 'on' if details.enabled else 'off' -}}
             </button>
+        </div>
+        <div class="option multi-option-confirm hidden">
+            <h6 class="bold">Setting this will <mark></mark> other options: </h6>
+            <button type="button" class="flush-change-cancel color-black-bg color-white-fg">cancel</button>
+            <button type="button" class="flush-change-confirm color-white-bg">continue</button>
         </div>
         <div class="option-description collapsed">
             {% for line in details.desc %}
@@ -168,7 +45,7 @@
     {% endfor %}
     {% endfor %}
 
-    <input type="hidden" name="id" value="{{ g.p5request.id }}" />
+    <input type="hidden" name="id" value="{{ g.p5.id }}" />
 
     <div class="form-footer">
         <p class="color-green-fg" id="updated">Your preferences have been updated.</p>

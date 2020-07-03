@@ -1,1 +1,3 @@
-from .blueprint import portal3 as bp
+from .blueprint import portal3
+
+BLUEPRINT = [portal3]

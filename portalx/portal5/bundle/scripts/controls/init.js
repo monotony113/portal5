@@ -14,16 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/* {% set variant = g.p5.get_bitmask() %} */
+
 var output = null
 var domDeferred = []
-const version = '{{ version }}'
+const variant = '{{ variant }}'
 
 function log(msg, fd) {
-    if (!fd) fd = console.log
-    fd(msg)
-    if (!output) output = document.querySelector('#console')
-    if (output) output.append(msg + '\n')
-    else domDeferred.push(() => log(msg, fd))
+    return new Promise(() => {
+        if (!fd) fd = console.log
+        fd(msg)
+        if (!output) output = document.querySelector('#console')
+        if (output) output.append(msg + '\n')
+        else domDeferred.push(() => log(msg, fd))
+    })
 }
 
 async function initServiceWorker() {
@@ -35,7 +39,7 @@ async function initServiceWorker() {
     if (!navigator.serviceWorker.controller || !registration) {
         try {
             log('await navigator.serviceWorker.register')
-            await navigator.serviceWorker.register(`/service-worker.${version}.js`, { scope: '/' })
+            await navigator.serviceWorker.register(`/~/service-worker.${variant}.js`, { scope: '/' })
             await waitAndReload()
         } catch (e) {
             log(e, console.error)

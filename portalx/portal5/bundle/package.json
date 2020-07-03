@@ -1,0 +1,26 @@
+{
+    "name": "portal5-worker",
+    "version": "1.0.0",
+    "description": "Service Worker and DOM Parser for portal5",
+    "main": "bundle.js",
+    "author": {
+        "name": "Tony Wu"
+    },
+    "license": "AGPL-3.0-or-later",
+    "dependencies": {
+        "parse5": "^6.0.0"
+    },
+    "eslintConfig": {
+        "env": {
+            "es6": true,
+            "node": true
+        }
+    },
+    "devDependencies": {
+        "@types/parse5": "^5.0.3",
+        "babel-eslint": "^10.1.0"
+    },
+    "scripts": {
+        "bundle": "browserify -s parse5 bundle.js | terser --compress --mangle > static/bundle.min.js"
+    }
+}

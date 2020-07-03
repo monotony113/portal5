@@ -1,1 +1,3 @@
-from .blueprint import _debug as bp
+from .blueprint import _debug
+
+BLUEPRINT = [_debug]

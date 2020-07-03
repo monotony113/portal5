@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import hashlib
 import json
 import uuid
 from functools import reduce
@@ -22,6 +23,7 @@ from urllib.parse import SplitResult, urlsplit
 from flask import Request
 
 from .. import common, security
+from .bitmasklib import mask_to_bits, bits_to_mask, constrain_ones
 
 APPNAME = 'portal5'
 
@@ -30,45 +32,72 @@ class PreferenceMixin(object):
     __slots__ = ()
 
     def __init__(self):
-        self.prefs: dict = self.bitmask_to_dict(self.prefs) if self.prefs is not None else FEATURES_DEFAULTS
-
-    def print_prefs(self, **kwargs):
-        prefs = {}
-        for k, v in self.prefs.items():
-            option = {}
-            option['enabled'] = v
-            option.update({k_: v for k_, v in FEATURES_TEXTS.get(k, dict(name=k)).items()})
-            if 'desc' in option:
-                option['desc'] = [line % kwargs for line in option['desc']]
-            section = prefs.setdefault(k.split('_')[0], {})
-            section[k] = option
-        return prefs
-
-    def make_client_prefs(self):
-        prefs = dict(
-            value=self.get_bitmask(),
-            local={FEATURES_KEYS[k]: self.prefs[FEATURES_KEYS[k]] for k in FEATURES_CLIENT_SPECIFIC},
-        )
-        return dict(prefs=prefs)
+        if self.prefs is not None:
+            self.set_bitmask(self.prefs)
+        else:
+            self.set_bitmask(bits_to_mask(self._defaults))
 
     def get_bitmask(self):
-        return self.dict_to_bitmask(self.prefs)
+        mask = self.prefs_to_bitmask(self.prefs)
+        mask_ = self.resolve_dependencies(mask)
+        if mask != mask_:
+            self.set_bitmask(mask_)
+            mask = mask_
+        return mask
 
     def set_bitmask(self, mask):
-        self.prefs = self.bitmask_to_dict(mask)
+        self.prefs = self.bitmask_to_prefs(self.resolve_dependencies(mask))
 
     @classmethod
-    def bitmask_to_dict(cls, mask):
-        return {FEATURES_KEYS[k]: bool(mask & 2 ** k) for k in FEATURES_KEYS if k in FEATURES_KEYS}
+    def resolve_dependencies(cls, mask):
+        return reduce(lambda m, s: m | constrain_ones(m, s[0], s[1]), cls._dependencies.items(), mask)
 
     @classmethod
-    def dict_to_bitmask(cls, prefs):
-        reverse_lookup = {v: k for k, v in FEATURES_KEYS.items()}
-        return reduce(lambda x, y: x | y, [2 ** reverse_lookup.get(k, 0) * int(v) for k, v in prefs.items()])
+    def bitmask_to_prefs(cls, mask):
+        return set(filter(None, {cls._keys.get(k, None) for k in mask_to_bits(mask)}))
+
+    @classmethod
+    def prefs_to_bitmask(cls, prefs):
+        bits = {cls._values.get(k, -1) for k in prefs}
+        bits.discard(-1)
+        return bits_to_mask(bits)
 
     @classmethod
     def make_default_prefs(cls):
-        return {**FEATURES_DEFAULTS}
+        return {*cls.bitmask_to_prefs(bits_to_mask(cls._defaults))}
+
+
+class PreferencePaneMixin(object):
+    __slots__ = ()
+
+    def print_prefs(self, **kwargs):
+        prefs = {}
+        for v in FEATURES_KEYS.values():
+            option = {}
+            option['enabled'] = v in self.prefs
+            option.update({k_: v for k_, v in FEATURES_TEXTS.get(v, dict(name=v)).items()})
+            if 'desc' in option:
+                option['desc'] = [line % kwargs for line in option['desc']]
+            section = prefs.setdefault(v.split('_')[0], {})
+            section[v] = option
+        return prefs
+
+    def make_client_prefs(self):
+        bitmask = self.get_bitmask()
+        prefs = dict(
+            value=bitmask,
+            local={FEATURES_KEYS[k]: True for k in mask_to_bits(bitmask) & FEATURES_CLIENT_SPECIFIC},
+        )
+        return dict(prefs=prefs)
+
+    def make_dependency_dicts(self):
+        return dict(zip(
+            ('dep', 'req'),
+            [
+                {FEATURES_KEYS[k].replace('_', '-'): [FEATURES_KEYS[v].replace('_', '-') for v in l] for k, l in d.items()}
+                for d in (FEATURES_DEPENDENCIES, FEATURES_REQUIREMENTS)
+            ],
+        ))
 
 
 class FeaturesMixin(object):
@@ -77,19 +106,21 @@ class FeaturesMixin(object):
     def process_response(self, remote, response, **kwargs):
         kwargs.update({f'request_{k}': getattr(self, k) for k in self.__slots__})
 
-        if self.prefs['basic_set_headers']:
+        if 'basic_set_headers' in self.prefs:
             common.copy_headers(remote, response, **kwargs)
+        elif 'Content-Encoding' in remote.headers:
+            response.headers['Content-Encoding'] = remote.headers['Content-Encoding']
 
-        if self.prefs['basic_set_cookies']:
+        if 'basic_set_cookies' in self.prefs:
             common.copy_cookies(remote, response, **kwargs)
 
-        if self.prefs['security_enforce_cors']:
+        if 'security_enforce_cors' in self.prefs:
             security.enforce_cors(remote, response, **kwargs)
 
-        if self.prefs['security_break_csp']:
+        if 'security_break_csp' in self.prefs:
             security.break_csp(remote, response, **kwargs)
 
-        if self.prefs['security_clear_cookies_on_navigate']:
+        if 'security_clear_cookies_on_navigate' in self.prefs:
             security.add_clear_site_data_header(remote, response, **kwargs)
 
 
@@ -114,13 +145,59 @@ class URLPassthruSettingsMixin(object):
         }
 
 
-class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
+class BundleMixin:
+    __slots__ = ()
+
+    @property
+    def requires_bundle(self):
+        bitmask = self.get_bitmask()
+        return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
+
+
+FEATURES_KEYS = {
+    0: 'basic_rewrite_crosssite',
+    1: 'basic_set_headers',
+    2: 'basic_set_cookies',
+    3: 'security_enforce_cors',
+    4: 'security_break_csp',
+    5: 'security_clear_cookies_on_navigate',
+    6: 'injection_dom_hijack',
+}
+FEATURES_VALUES = {v: k for k, v in FEATURES_KEYS.items()}
+
+FEATURES_DEFAULTS = {0, 1, 2, 3}
+
+FEATURES_DEPENDENCIES = {
+    3: {1},
+    4: {1},
+    6: {0, 4},
+}
+FEATURES_DEPENDENCIES = {k: reduce(lambda x, y: x | FEATURES_DEPENDENCIES.get(y, set()), v, v) for k, v in FEATURES_DEPENDENCIES.items()}
+
+FEATURES_REQUIREMENTS = {}
+for k, v in FEATURES_DEPENDENCIES.items():
+    for r in v:
+        req = FEATURES_REQUIREMENTS.setdefault(r, set())
+        req.add(k)
+
+FEATURES_CLIENT_SPECIFIC = {0, 6}
+FEATURES_BUNDLE_REQUIRING = {6}
+
+
+class Portal5Request(PreferenceMixin, PreferencePaneMixin, FeaturesMixin, BundleMixin, URLPassthruSettingsMixin):
     __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin'
 
     VERSION = 5
 
     HEADER = 'X-Portal5'
+    PREFS_COOKIE = 'portal5prefs'
+
     SETTINGS_ENDPOINT = '/settings'
+
+    _keys = FEATURES_KEYS
+    _values = FEATURES_VALUES
+    _defaults = FEATURES_DEFAULTS
+    _dependencies = FEATURES_DEPENDENCIES
 
     def __init__(self, request: Request):
         try:
@@ -131,6 +208,11 @@ class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
         for k in self.__slots__:
             if not hasattr(self, k):
                 setattr(self, k, fetch.get(k, None))
+
+        if self.prefs is None:
+            self.prefs = request.cookies.get(self.PREFS_COOKIE, None, int)
+
+        self.id = self.id or str(uuid.uuid4())
 
         PreferenceMixin.__init__(self)
 
@@ -145,6 +227,10 @@ class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
         elif self.referrer:
             return urlsplit(self.referrer).netloc
         return None
+
+    @property
+    def sha1digest(self):
+        return hashlib.sha1(self.id.encode()).hexdigest()[:8]
 
     def __call__(self, url: SplitResult, request: Request, **overrides):
         info = common.extract_request_info(request)
@@ -176,38 +262,17 @@ class Portal5Request(PreferenceMixin, FeaturesMixin, URLPassthruSettingsMixin):
     def make_worker_settings(self, request, app, g):
         settings = {**self.make_passthru_settings(app, g), **self.make_client_prefs()}
 
-        restricted = settings.setdefault('restricted', {})
+        restricted = settings.setdefault('authRequired', {})
         restricted.update({k: True for k in [self.SETTINGS_ENDPOINT]})
 
-        settings['id'] = uuid.uuid4()
+        settings['id'] = self.id
         settings['version'] = self.VERSION
         settings['protocol'] = request.scheme
         settings['host'] = request.host
+        settings['secret_key'] = self.sha1digest
 
         return settings
 
-
-FEATURES_KEYS = {
-    0: 'basic_rewrite_crosssite',
-    1: 'basic_set_headers',
-    2: 'basic_set_cookies',
-    3: 'security_enforce_cors',
-    4: 'security_break_csp',
-    5: 'security_clear_cookies_on_navigate',
-    6: 'experimental_client_side_rewrite',
-}
-
-FEATURES_CLIENT_SPECIFIC = [0, 6]
-
-FEATURES_DEFAULTS = {
-    'basic_rewrite_crosssite': True,
-    'basic_set_headers': True,
-    'basic_set_cookies': True,
-    'security_enforce_cors': True,
-    'security_break_csp': False,
-    'security_clear_cookies_on_navigate': False,
-    'experimental_client_side_rewrite': False,
-}
 
 FEATURES_TEXTS = {
     'basic_rewrite_crosssite': dict(
@@ -269,11 +334,11 @@ FEATURES_TEXTS = {
             'Note: This option relies on the <code>Clear-Site-Data</code> header to work, which is not supported by all browsers.',
         ],
     ),
-    'experimental_client_side_rewrite': dict(
-        name='Enable in-browser URL preprocessing',
+    'injection_dom_hijack': dict(
+        name='Enable DOM script injection',
         desc=[
-            'Experimental feature. <em>Allow Service Worker to prefetch an HTML document and rewrite all URLs in the document '
-            'before serving it to the browser.</em> This mainly has two benefits:',
+            'Experimental feature. <em>Allow Service Worker to <strong>inject scripts</strong> into an HTML document, granting this tool '
+            'the ability to modify all contents on a webpage.</em>',
             '<ul>'
             '<li><em>This allows user-initiated navigations to go through this tool.</em> Before, if you click on a link on a webpage that '
             'goes to a different domain, your browser will visit that domain directly, bypassing Service Worker altogether, and you will '
@@ -285,6 +350,6 @@ FEATURES_TEXTS = {
             'attributes. If the webpage you are visiting uses other non-conventional attributes for URLs, they will not be rewritten. '
             'The same goes for URLs generated dynamically by scripts.',
         ],
-        color='blue',
+        color='red',
     ),
 }

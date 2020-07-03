@@ -4,16 +4,11 @@
 
 {% block styles %}
 {{ super() }}
-<style>
-    #worker-failed,
-    #worker-unavailable {
-        display: none;
-    }
-</style>
+<link rel="stylesheet" href="/~/static/styles/init.css">
 {% endblock %}
 
 {% block scripts %}
-<script async src="/install-worker.js"></script>
+<script async src="/~/scripts/controls/init.js"></script>
 {% endblock %}
 
 {% block static_messages %}
