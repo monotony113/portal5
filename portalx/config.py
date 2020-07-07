@@ -23,3 +23,7 @@
 # PORTAL5_PASSTHRU_URLS = {}
 
 LANGUAGES = ['en', 'zh_cn']
+
+# JWT_SECRET_KEY = None
+
+JWT_IDENTITY_CLAIM = 'sub'

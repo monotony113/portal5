@@ -1,7 +1,8 @@
 {% extends 'components/blank.html' %}
 
-{% set variant = g.p5.get_bitmask() %}
-
 {% block scripts %}
-<script src="/~/scripts/controls/update.js?variant={{ variant }}"></script>
+<script nonce="{{ g.csp_nonce['script-src'] }}">
+    window._p5token = '{{ token }}'
+</script>
+<script src="/~/scripts/controls/update.js"></script>
 {% endblock %}

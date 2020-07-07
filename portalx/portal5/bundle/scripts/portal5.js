@@ -24,11 +24,13 @@ const { Injector } = require('./injector')
 
 const observerScript = `{% include "scripts/observer.js" %}`
 
-class Portal5Request {
+class Portal5 {
+    static headerName = 'X-Portal5'
     constructor(settings) {
         this.id = settings.id
         this.version = settings.version
         this.prefs = settings.prefs.value
+        this.directives = []
     }
     setReferrer(request, synthesized) {
         this.mode = request.mode
@@ -66,19 +68,33 @@ class Portal5Request {
             }
         }
     }
+    setDirective(directives) {
+        if (directives['revalidate-on-next-request']) {
+            delete directives['revalidate-on-next-request']
+            this.directives.push('revalidate')
+        }
+    }
     writeHeader(headers, mode) {
-        let p5 = Object.assign({}, this)
+        let p5 = new Object()
+
+        let attributes = []
         switch (mode) {
-            case 'secret':
-                delete p5.mode
-                delete p5.origin
-                delete p5.referrer
+            case 'regular':
+                attributes = ['version', 'prefs', 'mode', 'origin', 'referrer']
+                break
+            case 'identity':
+                attributes = ['id', 'version', 'prefs']
                 break
             default:
-                delete p5.id
                 break
         }
-        headers.set('X-Portal5', JSON.stringify(p5))
+        for (let i = 0; i < attributes.length; i++) p5[attributes[i]] = this[attributes[i]]
+        p5.actions = this.directives.join(',')
+
+        headers.set(Portal5.headerName, JSON.stringify(p5))
+    }
+    static parseDirectives(response) {
+        return JSON.parse(response.headers.get('X-Portal5-Directive') || '{}')
     }
     static async rewriteResponse(response, prefix, base) {
         let contentType = response.headers.get('Content-Type')
@@ -108,5 +124,5 @@ class Portal5Request {
 }
 
 /* {% if retain_import_exports %} */
-module.exports = { Portal5Request }
+module.exports = { Portal5 }
 /* {% endif %} */

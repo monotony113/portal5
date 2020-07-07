@@ -20,7 +20,7 @@
 /* {% if retain_import_exports %} */
 const { Rewriters } = require('./rewriter')
 const { Utils } = require('./utils')
-const { Portal5Request } = require('./portal5')
+const { Portal5 } = require('./portal5')
 /* {% endif %} */
 
 importScripts('/~/scripts/injector.js', '/~/scripts/rewriter.js', '/~/scripts/portal5.js', '/~/scripts/utils.js')
@@ -47,34 +47,59 @@ class ClientRecordContainer {
     }
 }
 
-function authorizationRequired(event) {
+
+function securityCheck(event) {
+    /** @type {Request} */
+    let request = event.request
+    if (request.headers.get(Portal5.headerName)) event.respondWith(new Response(null, { status: 403 }))
+}
+
+function specialRoutes(event) {
     /** @type {Request} */
     let request = event.request
     let url = new URL(request.url)
-    if (url.pathname in self.settings.authRequired) {
-        if (request.mode != 'navigate')
-            return event.respondWith(new Response(`Unacceptable request mode ${request.mode}`, { status: 403 }))
-        if (request.method != 'GET' && request.method != 'POST')
-            return event.respondWith(new Response(`Unacceptable HTTP method ${request.method}`, { status: 403 }))
-
-        let headers = new Headers()
-        let p5 = new Portal5Request(self.settings)
-        p5.writeHeader(headers, 'secret')
-
-        event.respondWith(
-            (async () => {
-                let requestOpts = {
-                    method: request.method,
-                    mode: 'same-origin',
-                    credentials: 'same-origin',
-                    headers: headers,
-                }
-                if (request.method == 'POST') requestOpts.body = await request.blob()
-                let response = await fetch(request.url, requestOpts)
-                return response
-            })()
-        )
+    if (!request.referrer && request.mode == 'navigate' && (request.method == 'GET' || request.method == 'POST')) {
+        let handler = self.settings.endpoints[url.pathname]
+        switch (handler) {
+            case 'directFetch':
+                event.respondWith(fetch(event.request))
+                break
+            case 'authRequired':
+                return authorizationRequired(event)
+            default:
+                break
+        }
     }
+}
+
+function authorizationRequired(event) {
+    /** @type {Request} */
+    let request = event.request
+    if (request.mode != 'navigate')
+        return event.respondWith(new Response(`Unacceptable request mode ${request.mode}`, { status: 403 }))
+    if (request.destination != 'document')
+        return event.respondWith(
+            new Response(`Unacceptable request destination ${request.destination}`, { status: 403 })
+        )
+
+    let requestOpts = {
+        method: request.method,
+        headers: new Headers(),
+        mode: 'same-origin',
+        credentials: 'same-origin',
+        redirect: 'manual',
+    }
+
+    let p5 = new Portal5(self.settings)
+    p5.setDirective(self.directives)
+    p5.writeHeader(requestOpts.headers, request.method == 'POST' ? 'secrets' : 'identity')
+
+    event.respondWith(
+        (async () => {
+            if (request.method == 'POST') requestOpts.body = await request.blob()
+            return makeFetch(new Request(request.url, requestOpts))
+        })()
+    )
 }
 
 function rewriteRequest(event) {
@@ -83,7 +108,7 @@ function rewriteRequest(event) {
             /** @type {Request} */
             let request = event.request
             let settings = self.settings
-            console.log(request.referrer, request.destination)
+
             var client = await clients.get(event.clientId || event.replacesClientId)
             if (!client && 'clients' in self && 'matchAll' in clients) {
                 let windows = await clients.matchAll({ type: 'window' })
@@ -126,19 +151,39 @@ function rewriteRequest(event) {
 
             let requestOpts = await Utils.makeRequestOptions(request)
 
-            let p5 = new Portal5Request(settings)
+            let p5 = new Portal5(settings)
             p5.setReferrer(request, synthesized)
-            p5.writeHeader(requestOpts.headers)
+            if (request.mode == 'navigate') p5.setDirective(self.directives)
+            p5.writeHeader(requestOpts.headers, 'regular')
 
             let outbound = new Request(final.href, requestOpts)
-
-            if (settings.prefs.local['injection_dom_hijack']) {
-                let response = await fetch(outbound)
-                return await Portal5Request.rewriteResponse(response, self.server, synthesized.url)
-            }
-            return fetch(outbound)
+            return makeFetch(outbound, {
+                injection_dom_hijack: {
+                    run: Portal5.rewriteResponse,
+                    args: [self.server, synthesized.url]
+                }
+            })
         })()
     )
+}
+
+async function makeFetch(request, useFeatures = null) {
+    let response = await fetch(request)
+
+    let directives = Portal5.parseDirectives(response)
+    for (let k in directives) self.directives[k] = directives[k]
+
+    let prefs = self.settings.prefs.local
+    if (useFeatures != null) {
+        let featureNames = Object.keys(useFeatures)
+        for (let i = 0; i < featureNames.length; i++) {
+            let name = featureNames[i]
+            if (!prefs[name]) continue
+            let options = useFeatures[name]
+            response = await options.run(response, ...options.args)
+        }
+    }
+    return response
 }
 
 self.destinationRequiresRedirect = {
@@ -152,7 +197,9 @@ self.destinationRequiresRedirect = {
 
 self.settings = JSON.parse('{{ settings|default(dict())|tojson }}')
 self.server = self.settings.protocol + '://' + self.settings.host
+
 self.clientRecords = new ClientRecordContainer()
+self.directives = {}
 
 self.addEventListener('install', (event) => {
     event.waitUntil(skipWaiting())
@@ -162,7 +209,8 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim())
 })
 
-self.addEventListener('fetch', authorizationRequired)
+self.addEventListener('fetch', securityCheck)
+self.addEventListener('fetch', specialRoutes)
 self.addEventListener('fetch', rewriteRequest)
 
 /* {% if requires_bundle %} */

@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-const variant = '{{ variant }}'
 window.addEventListener('load', () => history.replaceState('', document.title, '/settings'))
 window.addEventListener('load', async () => {
     if ('serviceWorker' in navigator) {
         let registration = await navigator.serviceWorker.getRegistration()
         await registration.unregister()
-        await navigator.serviceWorker.register(`/~/service-worker.${variant}.js`, { scope: '/' })
+        await navigator.serviceWorker.register(`/~/access/${window._p5token}/service-worker.js`, { scope: '/' })
         history.pushState('', document.title, '#updated')
         window.location.reload()
     }

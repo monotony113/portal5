@@ -14,11 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/* {% set variant = g.p5.get_bitmask() %} */
-
 var output = null
 var domDeferred = []
-const variant = '{{ variant }}'
 
 function log(msg, fd) {
     return new Promise(() => {
@@ -33,25 +30,17 @@ function log(msg, fd) {
 async function initServiceWorker() {
     const waitAndReload = async () => {
         log('window.location.reload')
-        window.location.reload()
+        window.location = new URLSearchParams(window.location.search).get('continue')
     }
     let registration = await navigator.serviceWorker.getRegistration()
-    if (!navigator.serviceWorker.controller || !registration) {
-        try {
-            log('await navigator.serviceWorker.register')
-            await navigator.serviceWorker.register(`/~/service-worker.${variant}.js`, { scope: '/' })
-            await waitAndReload()
-        } catch (e) {
-            log(e, console.error)
-            document.querySelector('#worker-failed').style.display = 'block'
-        }
-    } else {
-        log('navigator.serviceWorker.controller && true')
-        registration.addEventListener('updatefound', async () => {
-            log('registration.update')
-            await waitAndReload()
-        })
-        await registration.update()
+    if (registration) await registration.unregister()
+    try {
+        log('await navigator.serviceWorker.register')
+        await navigator.serviceWorker.register(`/~/access/${window._p5token}/service-worker.js`, { scope: '/' })
+        await waitAndReload()
+    } catch (e) {
+        log(e, console.error)
+        document.querySelector('#worker-failed').style.display = 'block'
     }
 }
 

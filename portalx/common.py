@@ -24,6 +24,7 @@ from flask import Request, Response, abort, stream_with_context
 from flask_babel import _
 from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.exceptions import HTTPException
+from werkzeug.wrappers.response import Response as BaseResponse
 
 from . import exceptions
 
@@ -161,8 +162,8 @@ def copy_cookies(remote: requests.Response, response: Response, *, server_domain
     return cookies
 
 
-def ensure_response(out):
-    if isinstance(out, Response):
+def wrap_response(out):
+    if isinstance(out, BaseResponse):
         return out
     if isinstance(out, tuple):
         return Response(*out)

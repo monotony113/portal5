@@ -15,13 +15,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import wraps
-from urllib.parse import SplitResult, unquote, urljoin
+from urllib.parse import SplitResult, quote, unquote, urljoin
 
 from flask import Blueprint, Request, Response, abort, current_app, g, redirect, render_template, request
 
 from .. import common, security
 from . import config
-from .portal5 import Portal5Request
+from .portal5 import Portal5
 
 APPNAME = 'portal5'
 
@@ -33,15 +33,52 @@ portal5 = Blueprint(
 )
 
 
+@portal5.before_app_first_request
+def codename():
+    Portal5.VERSION = current_app.config.get_namespace('PORTAL5_')['worker_codename']
+
+
 @portal5.before_request
 def parse_p5():
-    g.p5 = Portal5Request(request)
+    g.p5 = Portal5(request)
 
 
 @portal5.url_value_preprocessor
 def parse_url(endpoint, values):
     if 'requested' in values:
         values['requested'] = common.normalize_url(unquote(values['requested']))
+
+
+def requires_worker(view_func):
+    @wraps(view_func)
+    @security.referrer_policy('no-referrer')
+    def install(*args, **kwargs):
+        p5: Portal5 = g.p5
+        if not p5.valid:
+            path = quote(request.full_path if request.query_string else request.path)
+            return redirect(f'/init?continue={path}', 307)
+        return view_func(*args, **kwargs)
+    return install
+
+
+def requires_identity(view_func):
+    @wraps(view_func)
+    def security_check(*args, **kwargs):
+        p5: Portal5 = g.p5
+        if not p5.id:
+            return abort(401)
+        return view_func(*args, **kwargs)
+    return security_check
+
+
+def revalidate_if_outdated(view_func):
+    @wraps(view_func)
+    def append(*args, **kwargs):
+        p5: Portal5 = g.p5
+        if not p5.up_to_date:
+            p5.add_directive('revalidate-on-next-request')
+        return view_func(*args, **kwargs)
+    return append
 
 
 @portal5.route('/')
@@ -57,51 +94,44 @@ def favicon():
     return portal5.send_static_file('favicon.ico')
 
 
-@portal5.route('/init')
-@security.csp_no_frame_ancestor
+@portal5.route('/init', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@security.access_control_same_origin
+@security.csp_recommendations
+@security.csp_nonce('script-src')
+@security.referrer_policy('no-referrer')
+@Portal5.postprocess(g, 'p5')
 def install_worker():
-    return render_template(f'{APPNAME}/init.html')
+    p5: Portal5 = g.p5
+    return p5.issue_new_token(f'{APPNAME}/init.html', request.remote_addr, 'init')
 
 
-def requires_worker(view_func):
-    @wraps(view_func)
-    def install(*args, **kwargs):
-        p5: Portal5Request = g.p5
-        if not p5.up_to_date:
-            return install_worker()
-        return view_func(*args, **kwargs)
-    return install
-
-
-def requires_identity(view_func):
-    @wraps(view_func)
-    def security_check(*args, **kwargs):
-        p5: Portal5Request = g.p5
-        if not p5.id:
-            return abort(401)
-        return view_func(*args, **kwargs)
-    return security_check
-
-
-@portal5.route(Portal5Request.SETTINGS_ENDPOINT)
+@portal5.route(Portal5.ENDPOINT_SETTINGS)
 @requires_worker
 @requires_identity
-@security.csp_no_frame_ancestor
+@revalidate_if_outdated
+@security.access_control_same_origin
+@security.csp_recommendations
+@Portal5.postprocess(g, 'p5')
 def get_prefs():
-    p5: Portal5Request = g.p5
-    return render_template(
+    p5: Portal5 = g.p5
+    res = Response(render_template(
         f'{APPNAME}/preferences.html',
         prefs=p5.print_prefs(server_origin=g.server_origin),
-    )
+    ))
+    return res
 
 
-@portal5.route(Portal5Request.SETTINGS_ENDPOINT, methods=('POST',))
+@portal5.route(Portal5.ENDPOINT_SETTINGS, methods=('POST',))
 @requires_worker
 @requires_identity
+# @requires_secret
+@revalidate_if_outdated
 @security.access_control_same_origin
-@security.csp_no_frame_ancestor
+@security.csp_recommendations
+@security.csp_nonce('script-src')
+@Portal5.postprocess(g, 'p5')
 def save_prefs():
-    p5: Portal5Request = g.p5
+    p5: Portal5 = g.p5
 
     prefs = dict(**request.form)
     if p5.id != prefs.pop('id', None):
@@ -112,7 +142,7 @@ def save_prefs():
     else:
         p5.set_bitmask(p5.prefs_to_bitmask({k for k, v in prefs.items() if int(v)}))
 
-    return render_template(f'{APPNAME}/update.html')
+    return p5.issue_new_token(f'{APPNAME}/update.html', request.remote_addr, 'update')
 
 
 @portal5.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
@@ -122,6 +152,8 @@ def direct_fetch(requested: SplitResult):
 
 @portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 @requires_worker
+@revalidate_if_outdated
+@Portal5.postprocess(g, 'p5')
 def process_request(requested: SplitResult):
     return fetch(requested)
 
@@ -142,7 +174,7 @@ def fetch(requested: SplitResult):
             url = url_.geturl()
         return redirect(f'{request.scheme}://{request.host}/{url}', 307)
 
-    p5: Portal5Request = g.p5
+    p5: Portal5 = g.p5
 
     outbound = common.prepare_request(**p5(url_, request))
 

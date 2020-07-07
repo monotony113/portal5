@@ -16,11 +16,12 @@
 
 from functools import wraps
 
-from flask import Blueprint, Response, abort, current_app, g, render_template, request
+from flask import Blueprint, Response, current_app, g, render_template, request
+from flask_jwt_extended import get_jwt_claims, get_raw_jwt
 
 from .. import common, security
 from . import config
-from .portal5 import Portal5Request
+from .portal5 import Portal5
 
 APPNAME = 'p5bundle'
 p5bundle = Blueprint(
@@ -32,7 +33,7 @@ p5bundle = Blueprint(
 
 @p5bundle.before_request
 def parse_p5():
-    g.p5 = Portal5Request(request)
+    g.p5 = Portal5(request)
 
 
 def mimetype(mime_):
@@ -49,24 +50,27 @@ def mimetype(mime_):
 
         @wraps(view_func)
         def add_type(*args, **kwargs):
-            out = common.ensure_response(view_func(*args, **kwargs))
-            out.mimetype = mime
+            out = common.wrap_response(view_func(*args, **kwargs))
+            if out.status_code < 300:
+                out.mimetype = mime
             return out
 
         return add_type
     return wrapper
 
 
-@p5bundle.route('/service-worker.<int:variant>.js')
-@security.allow_referrer('/init', '/settings')
+@p5bundle.route('/access/<string:jwt>/service-worker.js')
+@security.requires_jwt_in('path', allow_expired=True)
+@security.rejects_jwt_where(security.jwt_is_invalid)
+@security.rejects_jwt_where(security.jwt_has_expired, response=lambda **_: ('', 304))
+@security.rejects_jwt_where(Portal5.jwt_has_invalid_claim(reasons=('init', 'update')))
+@security.rejects_jwt_where(security.jwt_has_unauthorized_subject)
 @mimetype('js')
-def service_worker(variant):
-    if request.referrer == request.url:
-        return '', 304
-
-    p5: Portal5Request = g.p5
+def service_worker():
+    variant = get_jwt_claims()['variant']
+    p5: Portal5 = g.p5
     p5.set_bitmask(variant)
-    worker_settings = p5.make_worker_settings(request, current_app, g)
+    worker_settings = p5.make_worker_settings(get_raw_jwt()['jti'], request, current_app, g)
     worker = Response(
         render_template('scripts/service-worker.js', settings=worker_settings, requires_bundle=p5.requires_bundle),
         headers={'Service-Worker-Allowed': '/'},
@@ -75,27 +79,10 @@ def service_worker(variant):
     return worker
 
 
-@p5bundle.route('/scripts/controls/init.js')
-@security.allow_referrer('/init', '/settings')
-@mimetype('js')
-def init_worker():
-    return render_template('scripts/controls/init.js')
-
-
-@p5bundle.route('/scripts/controls/update.js')
-@security.allow_referrer('/init', '/settings')
-@mimetype('js')
-def update_worker():
-    variant = request.args.get('variant', None)
-    if variant is None:
-        abort(400)
-    return render_template('scripts/controls/update.js', variant=variant)
-
-
 @p5bundle.route('/scripts/responsive/preferences.js')
 @mimetype('js')
 def preferences():
-    p5: Portal5Request = g.p5
+    p5: Portal5 = g.p5
     return render_template('scripts/responsive/preferences.js', **p5.make_dependency_dicts())
 
 

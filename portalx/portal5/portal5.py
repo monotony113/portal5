@@ -14,13 +14,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import hashlib
+from datetime import timedelta
 import json
-import uuid
-from functools import reduce
+from functools import reduce, wraps
 from urllib.parse import SplitResult, urlsplit
 
-from flask import Request
+from flask import Request, Response, render_template
+from flask_jwt_extended import create_access_token, get_jwt_claims
 
 from .. import common, security
 from .bitmasklib import mask_to_bits, bits_to_mask, constrain_ones
@@ -86,7 +86,7 @@ class PreferencePaneMixin(object):
         bitmask = self.get_bitmask()
         prefs = dict(
             value=bitmask,
-            local={FEATURES_KEYS[k]: True for k in mask_to_bits(bitmask) & FEATURES_CLIENT_SPECIFIC},
+            local={FEATURES_KEYS[k]: 1 for k in mask_to_bits(bitmask) & FEATURES_CLIENT_SPECIFIC},
         )
         return dict(prefs=prefs)
 
@@ -103,7 +103,7 @@ class PreferencePaneMixin(object):
 class FeaturesMixin(object):
     __slots__ = ()
 
-    def process_response(self, remote, response, **kwargs):
+    def process_response(self, remote, response: Response, **kwargs):
         kwargs.update({f'request_{k}': getattr(self, k) for k in self.__slots__})
 
         if 'basic_set_headers' in self.prefs:
@@ -139,8 +139,8 @@ class URLPassthruSettingsMixin(object):
         passthru_urls = passthru.get('urls', set())
         return {
             'passthru': dict(
-                domains={k: True for k in {g.sld} | sibling_domains | passthru_domains},
-                urls={k: True for k in passthru_urls},
+                domains={k: 1 for k in {g.sld} | sibling_domains | passthru_domains},
+                urls={k: 1 for k in passthru_urls},
             ),
         }
 
@@ -152,6 +152,53 @@ class BundleMixin:
     def requires_bundle(self):
         bitmask = self.get_bitmask()
         return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
+
+
+class JWTMixin:
+    __slots__ = ()
+
+    def issue_new_token(self, template, identity, reason, **kwargs):
+        return render_template(template, token=self.make_access_jwt(identity, reason='init'), **kwargs)
+
+    def make_access_jwt(self, identity, expires=300, include_id=False, **claims):
+        user_claims = dict(version=self.VERSION, variant=self.get_bitmask(), **claims)
+        if include_id:
+            user_claims['id'] = self.id
+        return create_access_token(
+            identity, expires_delta=timedelta(seconds=15) if expires else None,
+            user_claims=user_claims,
+        )
+
+    @classmethod
+    def jwt_has_invalid_claim(cls, *, reasons=()):
+        def check(*args, **kwargs):
+            claims = get_jwt_claims()
+            return any([
+                'version' not in claims,
+                not isinstance(claims.get('variant'), int),
+                reasons and claims.get('reason', None) not in reasons,
+            ])
+        return check
+
+
+class RequestDirectiveMixin:
+    __slots__ = ()
+
+    def __init__(self):
+        self.actions = set(self.actions.split(',')) if self.actions else set()
+
+
+class ResponseDirectiveMixin:
+    __slots__ = ()
+
+    def __init__(self):
+        self.directives = set()
+
+    def add_directive(self, directive):
+        self.directives.add(directive)
+
+    def set_directive_header(self, response):
+        response.headers['X-Portal5-Directive'] = json.dumps({k: 1 for k in self.directives})
 
 
 FEATURES_KEYS = {
@@ -184,15 +231,20 @@ FEATURES_CLIENT_SPECIFIC = {0, 6}
 FEATURES_BUNDLE_REQUIRING = {6}
 
 
-class Portal5Request(PreferenceMixin, PreferencePaneMixin, FeaturesMixin, BundleMixin, URLPassthruSettingsMixin):
-    __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin'
+class Portal5(
+    RequestDirectiveMixin, ResponseDirectiveMixin,
+    JWTMixin, PreferenceMixin, PreferencePaneMixin,
+    FeaturesMixin, URLPassthruSettingsMixin, BundleMixin,
+):
+    __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin', 'directives', 'actions'
 
-    VERSION = 5
+    VERSION = None
 
     HEADER = 'X-Portal5'
     PREFS_COOKIE = 'portal5prefs'
 
-    SETTINGS_ENDPOINT = '/settings'
+    ENDPOINT_INIT = '/init'
+    ENDPOINT_SETTINGS = '/settings'
 
     _keys = FEATURES_KEYS
     _values = FEATURES_VALUES
@@ -212,9 +264,13 @@ class Portal5Request(PreferenceMixin, PreferencePaneMixin, FeaturesMixin, Bundle
         if self.prefs is None:
             self.prefs = request.cookies.get(self.PREFS_COOKIE, None, int)
 
-        self.id = self.id or str(uuid.uuid4())
-
         PreferenceMixin.__init__(self)
+        RequestDirectiveMixin.__init__(self)
+        ResponseDirectiveMixin.__init__(self)
+
+    @property
+    def valid(self):
+        return 'revalidate' not in self.actions and self.version is not None
 
     @property
     def up_to_date(self):
@@ -227,10 +283,6 @@ class Portal5Request(PreferenceMixin, PreferencePaneMixin, FeaturesMixin, Bundle
         elif self.referrer:
             return urlsplit(self.referrer).netloc
         return None
-
-    @property
-    def sha1digest(self):
-        return hashlib.sha1(self.id.encode()).hexdigest()[:8]
 
     def __call__(self, url: SplitResult, request: Request, **overrides):
         info = common.extract_request_info(request)
@@ -259,19 +311,35 @@ class Portal5Request(PreferenceMixin, PreferencePaneMixin, FeaturesMixin, Bundle
 
         return kwargs
 
-    def make_worker_settings(self, request, app, g):
+    def make_worker_settings(self, identity, request, app, g):
         settings = {**self.make_passthru_settings(app, g), **self.make_client_prefs()}
 
-        restricted = settings.setdefault('authRequired', {})
-        restricted.update({k: True for k in [self.SETTINGS_ENDPOINT]})
+        settings['endpoints'] = {
+            self.ENDPOINT_INIT: 'directFetch',
+            self.ENDPOINT_SETTINGS: 'authRequired',
+        }
 
-        settings['id'] = self.id
+        settings['id'] = identity
         settings['version'] = self.VERSION
         settings['protocol'] = request.scheme
         settings['host'] = request.host
-        settings['secret_key'] = self.sha1digest
 
         return settings
+
+    @classmethod
+    def postprocess(cls, g_, g_attr):
+        def wrapper(view_func):
+            @wraps(view_func)
+            def post(*args, **kwargs):
+                response = common.wrap_response(view_func(*args, **kwargs))
+                p5: cls = getattr(g_, g_attr)
+
+                response.set_cookie(cls.PREFS_COOKIE, str(p5.get_bitmask()), path='/', secure=True, httponly=True)
+                p5.set_directive_header(response)
+
+                return response
+            return post
+        return wrapper
 
 
 FEATURES_TEXTS = {
