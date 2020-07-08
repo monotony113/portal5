@@ -27,7 +27,13 @@ importScripts('/~/scripts/injector.js', '/~/scripts/rewriter.js', '/~/scripts/po
 
 class ClientRecordContainer {
     constructor() {
-        setInterval(this.trim, 300000)
+        this.enableTrim()
+    }
+    enableTrim() {
+        this.interval = setInterval(this.trim, 300000)
+    }
+    pauseTrim() {
+        clearInterval(this.interval)
     }
     add(id, url) {
         this['client:' + id] = { represented: url, atime: Date.now() }
@@ -46,7 +52,6 @@ class ClientRecordContainer {
         ).then((r) => r.filter((r) => !r[1]).forEach((r) => delete this[r[0]]))
     }
 }
-
 
 function securityCheck(event) {
     /** @type {Request} */
@@ -92,7 +97,7 @@ function authorizationRequired(event) {
 
     let p5 = new Portal5(self.settings)
     p5.setDirective(self.directives)
-    p5.writeHeader(requestOpts.headers, request.method == 'POST' ? 'secrets' : 'identity')
+    p5.writeHeader(requestOpts.headers, 'identity')
 
     event.respondWith(
         (async () => {
@@ -102,6 +107,17 @@ function authorizationRequired(event) {
     )
 }
 
+async function getClient(event) {
+    var client
+    client = await clients.get(event.clientId || event.replacesClientId)
+    if (!client && 'clients' in self && 'matchAll' in clients) {
+        let windows = await clients.matchAll({ type: 'window' })
+        windows = windows.filter((w) => w.url == event.request.referrer || w.visibilityState == 'visible' || w.focused)
+        if (windows) client = windows[0]
+    }
+    return client
+}
+
 function rewriteRequest(event) {
     event.respondWith(
         (async () => {
@@ -109,14 +125,7 @@ function rewriteRequest(event) {
             let request = event.request
             let settings = self.settings
 
-            var client = await clients.get(event.clientId || event.replacesClientId)
-            if (!client && 'clients' in self && 'matchAll' in clients) {
-                let windows = await clients.matchAll({ type: 'window' })
-                windows = windows.filter(
-                    (w) => w.url == request.referrer || w.focused || w.visibilityState == 'visible'
-                )
-                if (windows) client = windows[0]
-            }
+            var client = await getClient(event)
 
             let requested = new URL(request.url)
             let referrer
@@ -153,15 +162,17 @@ function rewriteRequest(event) {
 
             let p5 = new Portal5(settings)
             p5.setReferrer(request, synthesized)
-            if (request.mode == 'navigate') p5.setDirective(self.directives)
+            if (request.mode == 'navigate') {
+                p5.setDirective(self.directives)
+            }
             p5.writeHeader(requestOpts.headers, 'regular')
 
             let outbound = new Request(final.href, requestOpts)
             return makeFetch(outbound, {
                 injection_dom_hijack: {
                     run: Portal5.rewriteResponse,
-                    args: [self.server, synthesized.url]
-                }
+                    args: [self.server, synthesized.url],
+                },
             })
         })()
     )
@@ -196,7 +207,7 @@ self.destinationRequiresRedirect = {
 }
 
 self.settings = JSON.parse('{{ settings|default(dict())|tojson }}')
-self.server = self.settings.protocol + '://' + self.settings.host
+self.server = self.settings.origin
 
 self.clientRecords = new ClientRecordContainer()
 self.directives = {}

@@ -1,4 +1,4 @@
-h5 {
+.option-name {
     margin: 0;
     display: flex;
     margin: 0 5pt 0;
@@ -113,10 +113,14 @@ br {
 
 .multi-option-confirm {
     justify-content: flex-end;
+    flex-wrap: wrap;
+    margin: 0;
 }
 
 .multi-option-confirm h6 {
-    margin: 0 1em 0 1em;
+    margin: 6pt 0 6pt 0;
+    flex-basis: 100%;
+    text-align: right;
 }
 
 .bold {

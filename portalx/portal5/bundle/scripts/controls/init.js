@@ -36,7 +36,7 @@ async function initServiceWorker() {
     if (registration) await registration.unregister()
     try {
         log('await navigator.serviceWorker.register')
-        await navigator.serviceWorker.register(`/~/access/${window._p5token}/service-worker.js`, { scope: '/' })
+        await navigator.serviceWorker.register(`/~/access/service-worker.js`, { scope: '/' })
         await waitAndReload()
     } catch (e) {
         log(e, console.error)

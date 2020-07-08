@@ -51,11 +51,15 @@ def setup_urls(app: Flask):
         endpoint='static', view_func=app.send_static_file,
     )
 
-    @app.url_value_preprocessor
-    def derive_server_info(endpoint, values):
+    @app.before_first_request
+    def derive_server_info():
+        app.config['SERVER_SLD'] = '.'.join(request.host.split('.')[-2:])
+
+
+    @app.before_request
+    def supply_server_info():
         g.server_origin = f'{request.scheme}://{request.host}'
-        g.sld = '.'.join(request.host.split('.')[-2:])
-        g.filters = app.config.get('PORTAL_URL_FILTERS', set())
+        g.sld = app.config['SERVER_SLD']
 
 
 def setup_debug(app: Flask):

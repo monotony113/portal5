@@ -30,11 +30,11 @@ from . import exceptions
 
 
 def extract_request_info(request: Request):
-    return dict(
-        headers=Headers(request.headers),
-        params=MultiDict(request.args),
-        cookies=MultiDict(request.cookies),
-    )
+    return {
+        'headers': Headers(request.headers),
+        'params': MultiDict(request.args),
+        'cookies': MultiDict(request.cookies),
+    }
 
 
 def stream_request_body(request: Request):
@@ -59,8 +59,7 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
             if query:
                 requested = f'{requested}?{query}'
             return exceptions.PortalMissingProtocol(requested)
-        else:
-            return exceptions.PortalBadRequest(_('Unsupported URL scheme "%(scheme)s"', scheme=requested.scheme))
+        return exceptions.PortalBadRequest(_('Unsupported URL scheme "%(scheme)s"', scheme=requested.scheme))
 
     if not requested.netloc:
         return exceptions.PortalBadRequest(_('URL <code>%(url)s</code> missing website domain name or location.', url=requested.geturl()))
@@ -167,5 +166,4 @@ def wrap_response(out):
         return out
     if isinstance(out, tuple):
         return Response(*out)
-    else:
-        return Response(out)
+    return Response(out)

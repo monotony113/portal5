@@ -1,8 +1,5 @@
 {% extends 'components/blank.html' %}
 
 {% block scripts %}
-<script nonce="{{ g.csp_nonce['script-src'] }}">
-    window._p5token = '{{ token }}'
-</script>
 <script src="/~/scripts/controls/update.js"></script>
 {% endblock %}

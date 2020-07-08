@@ -18,8 +18,7 @@ window.addEventListener('load', () => history.replaceState('', document.title, '
 window.addEventListener('load', async () => {
     if ('serviceWorker' in navigator) {
         let registration = await navigator.serviceWorker.getRegistration()
-        await registration.unregister()
-        await navigator.serviceWorker.register(`/~/access/${window._p5token}/service-worker.js`, { scope: '/' })
+        await registration.update()
         history.pushState('', document.title, '#updated')
         window.location.reload()
     }

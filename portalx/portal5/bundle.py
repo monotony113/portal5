@@ -16,11 +16,12 @@
 
 from functools import wraps
 
-from flask import Blueprint, Response, current_app, g, render_template, request
-from flask_jwt_extended import get_jwt_claims, get_raw_jwt
+from flask import Blueprint, Response, abort, g, render_template, request
 
 from .. import common, security
+from ..jwtkit import get_jwt, get_private_claims, verify_claims
 from . import config
+from .blueprint import get_p5
 from .portal5 import Portal5
 
 APPNAME = 'p5bundle'
@@ -59,34 +60,61 @@ def mimetype(mime_):
     return wrapper
 
 
-@p5bundle.route('/access/<string:jwt>/service-worker.js')
-@security.requires_jwt_in('path', allow_expired=True)
-@security.rejects_jwt_where(security.jwt_is_invalid)
-@security.rejects_jwt_where(security.jwt_has_expired, response=lambda **_: ('', 304))
-@security.rejects_jwt_where(Portal5.jwt_has_invalid_claim(reasons=('init', 'update')))
-@security.rejects_jwt_where(security.jwt_has_unauthorized_subject)
+@p5bundle.route('/scripts/controls/init.js')
+@mimetype('js')
+def init_with_token():
+    p5 = get_p5()
+    p5.issue_new_token(request.remote_addr, 'init')
+    return render_template('scripts/controls/init.js')
+
+
+@p5bundle.route('/access/service-worker.js')
+@security.expects_jwt_in('cookies', key=Portal5.COOKIE_AUTH)
+@security.rejects_jwt_where(security.jwt_is_not_supplied, respond_with=lambda *_, **__: ('', 304))
+@security.rejects_jwt_where(security.jwt_has_invalid_subject, Portal5.jwt_version_is_outdated)
 @mimetype('js')
 def service_worker():
-    variant = get_jwt_claims()['variant']
-    p5: Portal5 = g.p5
-    p5.set_bitmask(variant)
-    worker_settings = p5.make_worker_settings(get_raw_jwt()['jti'], request, current_app, g)
-    worker = Response(
+    p5 = get_p5()
+
+    access_token = get_jwt()
+    access_claims = get_private_claims(access_token)
+    privilege = access_claims.get('privilege')
+    if privilege == 'init':
+        if not verify_claims(access_token, _variant=p5.get_bitmask()):
+            return abort(401)
+    elif privilege == 'nochange':
+        return '', 304
+    elif privilege == 'update':
+        session_id = get_jwt(_privilege='nochange')['jti']
+        session_claim = access_claims.get('session')
+        if session_id != session_claim:
+            return abort(401)
+        p5.set_bitmask(access_claims.get('variant'))
+    else:
+        return abort(401)
+
+    worker_settings = p5.make_worker_settings(None, g.server_origin)
+    response = Response(
         render_template('scripts/service-worker.js', settings=worker_settings, requires_bundle=p5.requires_bundle),
         headers={'Service-Worker-Allowed': '/'},
     )
-    worker.set_cookie(p5.PREFS_COOKIE, str(p5.get_bitmask()), path='/', secure=True, httponly=True)
-    return worker
+    p5.clear_tokens()
+    return response
 
 
 @p5bundle.route('/scripts/responsive/preferences.js')
 @mimetype('js')
 def preferences():
-    p5: Portal5 = g.p5
-    return render_template('scripts/responsive/preferences.js', **p5.make_dependency_dicts())
+    return render_template('scripts/responsive/preferences.js', **get_p5().make_dependency_dicts())
 
 
 @p5bundle.route('/scripts/<path:file>')
 @mimetype('js')
 def scripts(file):
-    return render_template(f'scripts/{file}')
+    res = Response(render_template(f'scripts/{file}'))
+    res.headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'
+    res.add_etag()
+    return res
+
+
+p5bundle.after_request(Portal5.postprocess(get_p5))

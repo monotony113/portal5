@@ -8,9 +8,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ g.csp_nonce['script-src'] }}">
-    window._p5token = '{{ token }}'
-</script>
 <script async src="/~/scripts/controls/init.js"></script>
 {% endblock %}
 

@@ -14,21 +14,23 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from datetime import timedelta
 import json
-from functools import reduce, wraps
+import uuid
+from datetime import timedelta
+from functools import reduce
 from urllib.parse import SplitResult, urlsplit
 
-from flask import Request, Response, render_template
-from flask_jwt_extended import create_access_token, get_jwt_claims
+from cryptography.fernet import Fernet
+from flask import Request, Response
 
 from .. import common, security
+from ..jwtkit import JWTKit, get_all_jwts, get_private_claims
 from .bitmasklib import mask_to_bits, bits_to_mask, constrain_ones
 
 APPNAME = 'portal5'
 
 
-class PreferenceMixin(object):
+class PreferenceMixin:
     __slots__ = ()
 
     def __init__(self):
@@ -36,6 +38,8 @@ class PreferenceMixin(object):
             self.set_bitmask(self.prefs)
         else:
             self.set_bitmask(bits_to_mask(self._defaults))
+
+        self.register_action(self.write_prefs_cookie)
 
     def get_bitmask(self):
         mask = self.prefs_to_bitmask(self.prefs)
@@ -66,16 +70,16 @@ class PreferenceMixin(object):
     def make_default_prefs(cls):
         return {*cls.bitmask_to_prefs(bits_to_mask(cls._defaults))}
 
-
-class PreferencePaneMixin(object):
-    __slots__ = ()
+    @classmethod
+    def write_prefs_cookie(cls, p5, response):
+        response.set_cookie(cls.COOKIE_PREFS, str(p5.get_bitmask()), max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
 
     def print_prefs(self, **kwargs):
         prefs = {}
         for v in FEATURES_KEYS.values():
             option = {}
             option['enabled'] = v in self.prefs
-            option.update({k_: v for k_, v in FEATURES_TEXTS.get(v, dict(name=v)).items()})
+            option.update(FEATURES_TEXTS.get(v, {'name': v}))
             if 'desc' in option:
                 option['desc'] = [line % kwargs for line in option['desc']]
             section = prefs.setdefault(v.split('_')[0], {})
@@ -84,11 +88,11 @@ class PreferencePaneMixin(object):
 
     def make_client_prefs(self):
         bitmask = self.get_bitmask()
-        prefs = dict(
-            value=bitmask,
-            local={FEATURES_KEYS[k]: 1 for k in mask_to_bits(bitmask) & FEATURES_CLIENT_SPECIFIC},
-        )
-        return dict(prefs=prefs)
+        prefs = {
+            'value': bitmask,
+            'local': {FEATURES_KEYS[k]: 1 for k in mask_to_bits(bitmask) & FEATURES_CLIENT_SPECIFIC},
+        }
+        return {'prefs': prefs}
 
     def make_dependency_dicts(self):
         return dict(zip(
@@ -99,8 +103,13 @@ class PreferencePaneMixin(object):
             ],
         ))
 
+    @property
+    def requires_bundle(self):
+        bitmask = self.get_bitmask()
+        return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
 
-class FeaturesMixin(object):
+
+class FeaturesMixin:
     __slots__ = ()
 
     def process_response(self, remote, response: Response, **kwargs):
@@ -124,75 +133,72 @@ class FeaturesMixin(object):
             security.add_clear_site_data_header(remote, response, **kwargs)
 
 
-class URLPassthruSettingsMixin(object):
-    __slots__ = ()
-
-    def make_passthru_settings(self, app, g):
-        sibling_domains = {
-            f'{rule.subdomain}.{g.sld}'
-            for rule in app.url_map.iter_rules()
-            if rule.subdomain and rule.subdomain != APPNAME
-        }
-
-        passthru = app.config.get_namespace('PORTAL5_PASSTHRU_')
-        passthru_domains = passthru.get('domains', set())
-        passthru_urls = passthru.get('urls', set())
-        return {
-            'passthru': dict(
-                domains={k: 1 for k in {g.sld} | sibling_domains | passthru_domains},
-                urls={k: 1 for k in passthru_urls},
-            ),
-        }
-
-
-class BundleMixin:
-    __slots__ = ()
-
-    @property
-    def requires_bundle(self):
-        bitmask = self.get_bitmask()
-        return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
-
-
 class JWTMixin:
     __slots__ = ()
 
-    def issue_new_token(self, template, identity, reason, **kwargs):
-        return render_template(template, token=self.make_access_jwt(identity, reason='init'), **kwargs)
+    def __init__(self, request):
+        self.tokens = []
+        self.register_action(self.write_auth_cookie)
+        if request.cookies.get(self.COOKIE_AUTH, None) is None:
+            self.tokens = ['']
 
-    def make_access_jwt(self, identity, expires=300, include_id=False, **claims):
-        user_claims = dict(version=self.VERSION, variant=self.get_bitmask(), **claims)
-        if include_id:
-            user_claims['id'] = self.id
-        return create_access_token(
-            identity, expires_delta=timedelta(seconds=15) if expires else None,
-            user_claims=user_claims,
+    def issue_new_token(self, identity, privilege, expires=180, **claims):
+        user_claims = {
+            'version': self.VERSION,
+            'variant': self.get_bitmask(),
+            'privilege': privilege,
+            **claims,
+        }
+        token = JWTKit.get_jwtkit().create_token(
+            sub=identity, exp=timedelta(seconds=expires) if isinstance(expires, int) else None,
+            **user_claims,
         )
+        self.tokens.append(token)
+        return token
 
     @classmethod
-    def jwt_has_invalid_claim(cls, *, reasons=()):
-        def check(*args, **kwargs):
-            claims = get_jwt_claims()
-            return any([
-                'version' not in claims,
-                not isinstance(claims.get('variant'), int),
-                reasons and claims.get('reason', None) not in reasons,
-            ])
-        return check
+    def write_auth_cookie(cls, p5, response):
+        if p5.tokens:
+            response.set_cookie(cls.COOKIE_AUTH, ' '.join(p5.tokens), max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
+
+    def persist_tokens(self):
+        jwtkit = JWTKit.get_jwtkit()
+        self.tokens.extend([jwtkit.encode_token(token) for token in get_all_jwts()])
+
+    def clear_tokens(self):
+        self.tokens = ['']
+
+    @classmethod
+    def jwt_version_is_outdated(cls, jwt, *args, **kwargs):
+        return get_private_claims(jwt).get('version') != cls.VERSION
 
 
-class RequestDirectiveMixin:
+class PostprocessingMixin:
+    __slots__ = ()
+
+    def __init__(self):
+        self.late_actions = []
+
+    def register_action(self, action):
+        self.late_actions.append(action)
+
+    @classmethod
+    def postprocess(cls, getter):
+        def process(response):
+            p5: cls = getter()
+            for action in p5.late_actions:
+                action(p5, response)
+            return response
+        return process
+
+
+class DirectiveMixin:
     __slots__ = ()
 
     def __init__(self):
         self.actions = set(self.actions.split(',')) if self.actions else set()
-
-
-class ResponseDirectiveMixin:
-    __slots__ = ()
-
-    def __init__(self):
         self.directives = set()
+        self.register_action(Portal5.set_directive_header)
 
     def add_directive(self, directive):
         self.directives.add(directive)
@@ -231,27 +237,40 @@ FEATURES_CLIENT_SPECIFIC = {0, 6}
 FEATURES_BUNDLE_REQUIRING = {6}
 
 
-class Portal5(
-    RequestDirectiveMixin, ResponseDirectiveMixin,
-    JWTMixin, PreferenceMixin, PreferencePaneMixin,
-    FeaturesMixin, URLPassthruSettingsMixin, BundleMixin,
-):
-    __slots__ = 'id', 'version', 'prefs', 'mode', 'referrer', 'origin', 'directives', 'actions'
+class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, FeaturesMixin):
+    __slots__ = (
+        'id', 'version', 'prefs',
+        'mode', 'referrer', 'origin',
+        'directives', 'actions',
+        'tokens', 'tokens_max_age',
+        'late_actions',
+    )
 
     VERSION = None
 
     HEADER = 'X-Portal5'
-    PREFS_COOKIE = 'portal5prefs'
+    COOKIE_PREFS = 'portal5prefs'
+    COOKIE_AUTH = 'portal5auth'
 
     ENDPOINT_INIT = '/init'
     ENDPOINT_SETTINGS = '/settings'
+    ENDPOINT_UNINSTALL = '/~uninstall'
+    ENDPOINT_RESET = '/~reset'
+
+    COOKIE_MAX_AGE = 86400 * 365
 
     _keys = FEATURES_KEYS
     _values = FEATURES_VALUES
     _defaults = FEATURES_DEFAULTS
     _dependencies = FEATURES_DEPENDENCIES
 
+    _fernet: Fernet = None
+    _passthru_conf: dict = None
+
     def __init__(self, request: Request):
+        PostprocessingMixin.__init__(self)
+        JWTMixin.__init__(self, request)
+
         try:
             fetch = json.loads(request.headers.get(self.HEADER, '{}'))
         except Exception:
@@ -262,11 +281,10 @@ class Portal5(
                 setattr(self, k, fetch.get(k, None))
 
         if self.prefs is None:
-            self.prefs = request.cookies.get(self.PREFS_COOKIE, None, int)
+            self.prefs = request.cookies.get(self.COOKIE_PREFS, None, int)
 
         PreferenceMixin.__init__(self)
-        RequestDirectiveMixin.__init__(self)
-        ResponseDirectiveMixin.__init__(self)
+        DirectiveMixin.__init__(self)
 
     @property
     def valid(self):
@@ -280,7 +298,7 @@ class Portal5(
     def origin_domain(self):
         if self.origin:
             return urlsplit(self.origin).netloc
-        elif self.referrer:
+        if self.referrer:
             return urlsplit(self.referrer).netloc
         return None
 
@@ -293,6 +311,9 @@ class Portal5(
         headers.pop('Referer', None)
         headers.pop(self.HEADER, None)
 
+        cookies = info['cookies']
+        cookies.pop(self.COOKIE_PREFS, None)
+
         if self.referrer:
             headers['Referer'] = self.referrer
 
@@ -302,7 +323,7 @@ class Portal5(
         if self.origin_domain:
             kwargs = security.conceal_origin(request.host, self.origin_domain, url, **info)
         else:
-            kwargs = dict(url=url, **info)
+            kwargs = {'url': url, **info}
 
         kwargs['method'] = request.method
         kwargs['url'] = kwargs['url'].geturl()
@@ -311,35 +332,21 @@ class Portal5(
 
         return kwargs
 
-    def make_worker_settings(self, identity, request, app, g):
-        settings = {**self.make_passthru_settings(app, g), **self.make_client_prefs()}
+    def make_worker_settings(self, identity, server):
+        settings = {**self.make_client_prefs(), 'passthru': self._passthru_conf}
 
         settings['endpoints'] = {
             self.ENDPOINT_INIT: 'directFetch',
             self.ENDPOINT_SETTINGS: 'authRequired',
+            self.ENDPOINT_UNINSTALL: 'directFetch',
+            self.ENDPOINT_RESET: 'directFetch',
         }
 
-        settings['id'] = identity
+        settings['id'] = identity or self.id or str(uuid.uuid4())
         settings['version'] = self.VERSION
-        settings['protocol'] = request.scheme
-        settings['host'] = request.host
+        settings['origin'] = server
 
         return settings
-
-    @classmethod
-    def postprocess(cls, g_, g_attr):
-        def wrapper(view_func):
-            @wraps(view_func)
-            def post(*args, **kwargs):
-                response = common.wrap_response(view_func(*args, **kwargs))
-                p5: cls = getattr(g_, g_attr)
-
-                response.set_cookie(cls.PREFS_COOKIE, str(p5.get_bitmask()), path='/', secure=True, httponly=True)
-                p5.set_directive_header(response)
-
-                return response
-            return post
-        return wrapper
 
 
 FEATURES_TEXTS = {

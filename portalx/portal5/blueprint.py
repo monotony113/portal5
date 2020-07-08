@@ -17,9 +17,11 @@
 from functools import wraps
 from urllib.parse import SplitResult, quote, unquote, urljoin
 
+from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, Request, Response, abort, current_app, g, redirect, render_template, request
 
 from .. import common, security
+from ..jwtkit import get_jwt
 from . import config
 from .portal5 import Portal5
 
@@ -33,9 +35,16 @@ portal5 = Blueprint(
 )
 
 
+def get_p5() -> Portal5:
+    return getattr(g, 'p5', None)
+
+
 @portal5.before_app_first_request
 def codename():
-    Portal5.VERSION = current_app.config.get_namespace('PORTAL5_')['worker_codename']
+    conf = current_app.config.get_namespace('PORTAL5_')
+    Portal5.VERSION = conf['worker_codename']
+    Portal5._fernet = Fernet(conf['secret_key'].encode())
+    Portal5._passthru_conf = config.collect_passthru_urls()
 
 
 @portal5.before_request
@@ -49,32 +58,37 @@ def parse_url(endpoint, values):
         values['requested'] = common.normalize_url(unquote(values['requested']))
 
 
+@security.referrer_policy('no-referrer')
+def redirect_to_init(path=None):
+    return redirect(f'/init?continue={path}' if path else '/init', 307)
+
+
 def requires_worker(view_func):
     @wraps(view_func)
-    @security.referrer_policy('no-referrer')
     def install(*args, **kwargs):
-        p5: Portal5 = g.p5
+        p5 = get_p5()
         if not p5.valid:
-            path = quote(request.full_path if request.query_string else request.path)
-            return redirect(f'/init?continue={path}', 307)
+            if request.accept_mimetypes.accept_html:
+                path = quote(request.full_path if request.query_string else request.path)
+                return redirect_to_init(path)
         return view_func(*args, **kwargs)
     return install
 
 
 def requires_identity(view_func):
     @wraps(view_func)
-    def security_check(*args, **kwargs):
-        p5: Portal5 = g.p5
+    def check(*args, **kwargs):
+        p5 = get_p5()
         if not p5.id:
-            return abort(401)
+            return abort(403)
         return view_func(*args, **kwargs)
-    return security_check
+    return check
 
 
 def revalidate_if_outdated(view_func):
     @wraps(view_func)
     def append(*args, **kwargs):
-        p5: Portal5 = g.p5
+        p5 = get_p5()
         if not p5.up_to_date:
             p5.add_directive('revalidate-on-next-request')
         return view_func(*args, **kwargs)
@@ -94,15 +108,21 @@ def favicon():
     return portal5.send_static_file('favicon.ico')
 
 
-@portal5.route('/init', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@portal5.route(Portal5.ENDPOINT_INIT, methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 @security.access_control_same_origin
-@security.csp_recommendations
-@security.csp_nonce('script-src')
+@security.csp_protected
 @security.referrer_policy('no-referrer')
-@Portal5.postprocess(g, 'p5')
 def install_worker():
-    p5: Portal5 = g.p5
-    return p5.issue_new_token(f'{APPNAME}/init.html', request.remote_addr, 'init')
+    return render_template(f'{APPNAME}/init.html')
+
+
+@portal5.route(Portal5.ENDPOINT_SETTINGS, methods=('OPTIONS',))
+@security.access_control_same_origin
+def settings_options():
+    res = Response('', 204)
+    res.headers['Access-Control-Allow-Methods'] = 'GET, POST, HEAD, OPTIONS'
+    res.headers['Access-Control-Allow-Headers'] = 'X-Portal5, Cookie'
+    return res
 
 
 @portal5.route(Portal5.ENDPOINT_SETTINGS)
@@ -110,55 +130,79 @@ def install_worker():
 @requires_identity
 @revalidate_if_outdated
 @security.access_control_same_origin
-@security.csp_recommendations
-@Portal5.postprocess(g, 'p5')
+@security.csp_protected
 def get_prefs():
-    p5: Portal5 = g.p5
+    p5 = get_p5()
+
+    csrf_token = p5._fernet.encrypt(p5.id.encode())
     res = Response(render_template(
         f'{APPNAME}/preferences.html',
         prefs=p5.print_prefs(server_origin=g.server_origin),
+        csrf_token=csrf_token.decode('utf8'),
     ))
+
+    p5.issue_new_token(request.remote_addr, 'nochange', expires=43200)
     return res
 
 
 @portal5.route(Portal5.ENDPOINT_SETTINGS, methods=('POST',))
 @requires_worker
 @requires_identity
-# @requires_secret
 @revalidate_if_outdated
+@security.expects_jwt_in('cookies', key=Portal5.COOKIE_AUTH)
+@security.rejects_jwt_where(
+    security.jwt_has_invalid_subject,
+    security.jwt_does_not_claim(_privilege='nochange'),
+    Portal5.jwt_version_is_outdated,
+)
 @security.access_control_same_origin
-@security.csp_recommendations
-@security.csp_nonce('script-src')
-@Portal5.postprocess(g, 'p5')
+@security.csp_protected
 def save_prefs():
-    p5: Portal5 = g.p5
+    p5 = get_p5()
+    prefs = {**request.form}
 
-    prefs = dict(**request.form)
-    if p5.id != prefs.pop('id', None):
-        return abort(401)
+    forbidden = True
+    csrf_token = prefs.pop('csrf_token')
+    if csrf_token:
+        try:
+            csrf_id = p5._fernet.decrypt(csrf_token.encode()).decode('utf8')
+            if p5.id == csrf_id:
+                forbidden = False
+        except InvalidToken:
+            pass
+    if forbidden:
+        p5.clear_tokens()
+        return abort(403)
 
     if prefs.pop('action') == 'reset':
-        p5.prefs = p5.make_default_prefs()
+        prefs = p5.make_default_prefs()
     else:
-        p5.set_bitmask(p5.prefs_to_bitmask({k for k, v in prefs.items() if int(v)}))
+        prefs = {k for k, v in prefs.items() if v.isnumeric() and int(v)}
 
-    return p5.issue_new_token(f'{APPNAME}/update.html', request.remote_addr, 'update')
+    p5.issue_new_token(request.remote_addr, 'update', session=get_jwt()['jti'], variant=p5.prefs_to_bitmask(prefs))
+    p5.persist_tokens()
+
+    return render_template(f'{APPNAME}/update.html')
 
 
 @portal5.route('/direct/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def direct_fetch(requested: SplitResult):
-    return fetch(requested)
+    return fetch(resolve_url(requested, prefix='direct'))
 
 
-@portal5.route('/<path:requested>', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@portal5.route('/<path:requested>', methods=('GET',))
 @requires_worker
 @revalidate_if_outdated
-@Portal5.postprocess(g, 'p5')
-def process_request(requested: SplitResult):
-    return fetch(requested)
+def request_with_worker(requested: SplitResult):
+    return fetch(resolve_url(requested))
 
 
-def fetch(requested: SplitResult):
+@portal5.route('/<path:requested>', methods=('POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+def request_no_worker(requested: SplitResult):
+    return fetch(resolve_url(requested))
+
+
+def resolve_url(requested: SplitResult, *, prefix=''):
     url_ = requested
     if not url_.path:
         url_ = SplitResult(*[*requested[:2], '/', *requested[3:]])
@@ -172,11 +216,17 @@ def fetch(requested: SplitResult):
             url = urljoin(url_.geturl(), f'?{request.query_string.decode("utf8")}')
         else:
             url = url_.geturl()
-        return redirect(f'{request.scheme}://{request.host}/{url}', 307)
+        return redirect(f'{request.scheme}://{request.host}/{prefix}/{url}', 307)
 
-    p5: Portal5 = g.p5
+    return url_
 
-    outbound = common.prepare_request(**p5(url_, request))
+
+def fetch(url: SplitResult):
+    if not isinstance(url, SplitResult):
+        return url
+
+    p5 = get_p5()
+    outbound = common.prepare_request(**p5(url, request))
 
     filters = current_app.config.get('PORTAL_URL_FILTERS')
     should_abort = filters.test(outbound)
@@ -193,13 +243,16 @@ def fetch(requested: SplitResult):
     return response
 
 
-@portal5.route('/~reset')
+@portal5.route(Portal5.ENDPOINT_RESET)
+@security.clear_site_data
 def reset():
     res = Response('', status=204)
-    res.headers['Clear-Site-Data'] = '"cache", "cookies", "storage"'
     return res
 
 
-@portal5.route('/~uninstall')
+@portal5.route(Portal5.ENDPOINT_UNINSTALL)
 def uninstall():
     return render_template(f'{APPNAME}/uninstall.html')
+
+
+portal5.after_request(Portal5.postprocess(get_p5))

@@ -38,9 +38,6 @@ class RequestTest(Hashable):
     def __hash__(self):
         return hash(self.name) ^ hash(self._test)
 
-    def __str__(self):
-        return super().__str__()
-
     @classmethod
     def test(cls, name=None, description=None):
         def wrap(f):
@@ -63,11 +60,11 @@ class RequestFilter(MutableSet):
     def __len__(self):
         return self._tests.__len__()
 
-    def add(self, item):
-        return self._tests.add(item)
+    def add(self, value):
+        return self._tests.add(value)
 
-    def discard(self, item):
-        return self._tests.discard(item)
+    def discard(self, value):
+        return self._tests.discard(value)
 
     def test(self, request: requests.PreparedRequest):
         for f in self._tests:

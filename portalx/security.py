@@ -14,94 +14,86 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import time
 import secrets
 from functools import wraps
 from typing import Dict, Union
 from urllib.parse import SplitResult, urlsplit
 
 import requests
-from flask import Request, Response, abort, g, request, _app_ctx_stack
-from flask_jwt_extended import JWTManager, decode_token, get_jwt_identity, get_raw_jwt, verify_jwt_in_request
-from flask_jwt_extended.exceptions import JWTExtendedException
-from jwt.exceptions import PyJWTError
+from flask import Request, Response, abort, g, request
+from jwt import InvalidTokenError
 from werkzeug.datastructures import MultiDict
 
 from . import common
+from .jwtkit import JWTKit, get_jwt, verify_claims, verify_exp
 
 request: Request
 
-jwt = JWTManager()
+jwt_kit = JWTKit()
 
 
 def setup_jwt(app):
-    jwt.init_app(app)
+    jwt_kit.init_app(app)
 
 
-def requires_jwt_authorization(view_func):
-    @wraps(view_func)
-    def decode(*args, **kwargs):
-        try:
-            verify_jwt_in_request()
-            g.jwt = get_raw_jwt()
-            return view_func(*args, **kwargs)
-        except (JWTExtendedException, PyJWTError) as e:
-            return abort(401, e)
-    return decode
-
-
-def requires_jwt_in(where, allow_expired=False):
+def expects_jwt_in(where, *, key='jwt', **jwtkit_kwargs):
     getters = {
-        'path': lambda kwargs: kwargs.pop('jwt', None),
-        'params': lambda _=None: request.args.get('jwt'),
-        'form': lambda _=None: request.form.get('jwt'),
+        'path': lambda kwargs: kwargs.pop(key, None),
+        'params': lambda _=None: request.args.get(key),
+        'form': lambda _=None: request.form.get(key),
+        'cookies': lambda _=None: request.cookies.get(key),
     }
-    if where not in getters:
+
+    if where in getters:
+        getter = getters[where]
+    elif callable(where):
+        getter = where
+    else:
         raise ValueError(f'Cannot get JWT from "{where}"')
 
     def wrapper(view_func):
         @wraps(view_func)
         def decode(*args, **kwargs):
-            jwt = getters[where](kwargs)
-            if not jwt:
-                token = dict(exception=ValueError(f'No token found in {where}'))
-            else:
+            jwtkit = JWTKit.get_jwtkit()
+            jwt = getter(kwargs) or ''
+            for token in jwt.split(' '):
                 try:
-                    token = decode_token(jwt, allow_expired=allow_expired)
-                except (JWTExtendedException, PyJWTError) as e:
-                    token = dict(exception=e)
-
-            g.jwt = token
-            _app_ctx_stack.top.jwt = g.jwt
-            _app_ctx_stack.top.jwt_header = f'Bearer {jwt}'
-
+                    jwtkit.decode_token(token.strip(), **jwtkit_kwargs)
+                except InvalidTokenError:
+                    pass
             return view_func(*args, **kwargs)
         return decode
-
     return wrapper
 
 
-def rejects_jwt_where(*tests, aborts_with=(401,), response=None):
+def rejects_jwt_where(*tests, respond_with=(401,), **query):
     def wrapper(view_func):
         @wraps(view_func)
         def verify(*args, **kwargs):
-            if any((t(*args, **kwargs) for t in tests)):
-                return response(*args, **kwargs) if response else abort(*aborts_with)
+            jwt = get_jwt(**query)
+            if any((test(jwt, *args, **kwargs) for test in tests)):
+                return respond_with(*args, **kwargs) if callable(respond_with) else abort(*respond_with)
             return view_func(*args, **kwargs)
         return verify
     return wrapper
 
 
-def jwt_is_invalid(*args, **kwargs):
-    return isinstance(get_raw_jwt().get('exception', None), Exception)
+def jwt_is_not_supplied(jwt, *args, **kwargs):
+    return not jwt
 
 
-def jwt_has_unauthorized_subject(*args, **kwargs):
-    return get_jwt_identity() != request.remote_addr
+def jwt_has_invalid_subject(jwt, *args, **kwargs):
+    return jwt.get('sub') != request.remote_addr
 
 
-def jwt_has_expired(*args, **kwargs):
-    return time.time() >= get_raw_jwt()['exp']
+def jwt_has_expired(jwt, *args, **kwargs):
+    return not verify_exp(jwt)
+
+
+def jwt_does_not_claim(**claims):
+    def check(jwt, *args, **kwargs):
+        return not verify_claims(jwt, **claims)
+    return check
 
 
 def access_control_same_origin(view_func):
@@ -145,7 +137,7 @@ def csp_directives(*directives):
     return wrapper
 
 
-def csp_recommendations(view_func):
+def csp_protected(view_func):
     @wraps(view_func)
     def add_csp(*args, **kwargs):
         out = common.wrap_response(view_func(*args, **kwargs))
@@ -233,7 +225,7 @@ def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> 
             k: list(map(lambda v: v.replace(find, replace), dict_.getlist(k, type=str))) for k in dict_.keys()
         })
 
-    return dict(url=url, **multidicts)
+    return {'url': url, **multidicts}
 
 
 def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin, **kwargs) -> None:
@@ -282,3 +274,12 @@ def add_clear_site_data_header(remote: requests.Response, response: Response, *,
     remote_origin = f'{remote_url.scheme}://{remote_url.netloc}'
     if request_mode == 'navigate' and request_origin != remote_origin:
         response.headers.add('Clear-Site-Data', '"cookies"')
+
+
+def clear_site_data(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        out = common.wrap_response(view_func(*args, **kwargs))
+        out.headers['Clear-Site-Data'] = '"cache", "cookies", "storage"'
+        return out
+    return wrapper

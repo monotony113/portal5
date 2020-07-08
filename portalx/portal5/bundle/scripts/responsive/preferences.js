@@ -107,7 +107,10 @@ class PreferenceOption {
         let hint = this.multiOptionsHint
         if (status == 'on') hint.classList.remove('hidden')
         else hint.classList.add('hidden')
-        if (status == 'on') hint.getElementsByTagName('mark')[0].innerText = willEnable ? 'enable' : 'disable'
+        if (status == 'on') {
+            hint.getElementsByTagName('span')[0].innerText = willEnable ? 'Enabling' : 'Disabling'
+            hint.getElementsByTagName('mark')[0].innerText = willEnable ? 'enable' : 'disable'
+        }
     }
     setHighlight(status) {
         let container = this.container

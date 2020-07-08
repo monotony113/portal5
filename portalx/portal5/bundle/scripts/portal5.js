@@ -25,10 +25,10 @@ const { Injector } = require('./injector')
 const observerScript = `{% include "scripts/observer.js" %}`
 
 class Portal5 {
-    static headerName = 'X-Portal5'
     constructor(settings) {
         this.id = settings.id
         this.version = settings.version
+        this.secret = settings.secret
         this.prefs = settings.prefs.value
         this.directives = []
     }
@@ -122,6 +122,7 @@ class Portal5 {
         return response
     }
 }
+Portal5.headerName = 'X-Portal5'
 
 /* {% if retain_import_exports %} */
 module.exports = { Portal5 }

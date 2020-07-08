@@ -24,14 +24,14 @@
     <div id="{{ option_id|replace('_', '-') }}" class="option-container">
         <div class="option">
             <input type="hidden" name="{{ option_id }}" value="{{ details.enabled|int }}" />
-            <h5><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
+            <h5 class="option-name"><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
             <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg"
                 data-color="{{ color }}">
                 {{- 'on' if details.enabled else 'off' -}}
             </button>
         </div>
         <div class="option multi-option-confirm hidden">
-            <h6 class="bold">Setting this will <mark></mark> other options: </h6>
+            <h6 class="bold"><span></span> this will also <mark></mark> highlighted options</h6>
             <button type="button" class="flush-change-cancel color-black-bg color-white-fg">cancel</button>
             <button type="button" class="flush-change-confirm color-white-bg">continue</button>
         </div>
@@ -45,7 +45,7 @@
     {% endfor %}
     {% endfor %}
 
-    <input type="hidden" name="id" value="{{ g.p5.id }}" />
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
 
     <div class="form-footer">
         <p class="color-green-fg" id="updated">Your preferences have been updated.</p>

@@ -79,7 +79,10 @@ def forward(requested, direct_request=False):
 
     if url_ == requested:
         url = url_.geturl()
-        kwargs = dict(data=common.stream_request_body(request), **common.extract_request_info(request))
+        kwargs = {
+            'data': common.stream_request_body(request),
+            **common.extract_request_info(request)
+        }
 
         headers = kwargs['headers']
         headers.pop('Referer', None)
@@ -103,13 +106,13 @@ def forward(requested, direct_request=False):
 
         return response
 
-    return redirect(urlunsplit(tuple([
+    return redirect(urlunsplit((
         *urlsplit(f'{request.scheme}://{request.host}/{url_.geturl()}')[:3],
-        request.query_string.decode('utf8'), ''
-    ])), 307)
+        request.query_string.decode('utf8'), '',
+    )), 307)
 
 
 def set_cookies(res, *, path='/', max_age=180, **cookies):
     for k, v in cookies.items():
-        opts = dict(key=f'{APPNAME}-remote-{k}', value=v, path=path, max_age=max_age)
+        opts = {'key': f'{APPNAME}-remote-{k}', 'value': v, 'path': path, 'max_age': max_age}
         res.set_cookie(**opts)
