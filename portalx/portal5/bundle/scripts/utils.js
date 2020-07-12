@@ -1,6 +1,6 @@
 // utils.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-//
+// /* {% if retain_comments %} */
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,13 +13,14 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// /* {% endif %} */
 
 /* eslint-env serviceworker */
 
 class Utils {
     static async makeRequestOptions(request) {
-        let headers = new Headers()
-        request.headers.forEach((v, k) => headers.append(k, v))
+        let headers = {}
+        request.headers.forEach((v, k) => (headers[k] = v))
 
         let requestOpts = {
             method: request.method,
@@ -34,7 +35,9 @@ class Utils {
         }
 
         let body = await request.blob()
-        if (body.size > 0) requestOpts.body = body
+        if (body.size > 0) {
+            requestOpts.body = body
+        }
 
         return requestOpts
     }
@@ -43,8 +46,64 @@ class Utils {
         if (str.startsWith(prefix)) return this.trimPrefix(str.substr(prefix.length), prefix)
         return str
     }
+
+    static readBlob(blob, func = FileReader.prototype.readAsDataURL, args = []) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.addEventListener('error', reject)
+            reader.addEventListener('load', () => resolve(reader.result))
+            func.apply(reader, [blob, ...args])
+        })
+    }
+}
+
+class TranscientStorage {
+    add(id, data, namespace = 'data', ttl = null) {
+        id = namespace + ':' + id
+        this[id] = data
+        if (ttl) setTimeout(() => this.remove(id), ttl)
+    }
+    get(id, namespace = 'data') {
+        return this[namespace + ':' + id]
+    }
+    remove(id, namespace = 'data') {
+        id = namespace + ':' + id
+        let item = this[id]
+        delete this[id]
+        return item
+    }
+    keys(namespace = 'data') {
+        return Object.keys(this).filter((v) => v.startsWith(namespace + ':'))
+    }
+}
+
+class ClientRecordStorage extends TranscientStorage {
+    constructor() {
+        super()
+        this.enableTrim()
+    }
+    enableTrim() {
+        this.interval = setInterval(this.trim.bind(this), 300000)
+    }
+    pauseTrim() {
+        clearInterval(this.interval)
+    }
+    add(id, url) {
+        super.add(id, { represented: url, atime: Date.now() }, 'client')
+    }
+    get(id) {
+        return super.get(id, 'client')
+    }
+    remove(id) {
+        return super.remove(id, 'client')
+    }
+    trim() {
+        Promise.all(super.keys('client').map(async (k) => [k, await clients.get(k.substr(7))])).then((r) =>
+            r.filter((r) => !r[1]).forEach((r) => delete this[r[0]])
+        )
+    }
 }
 
 /* {% if retain_import_exports %} */
-module.exports = { Utils }
+module.exports = { TranscientStorage, ClientRecordStorage, Utils }
 /* {% endif %} */

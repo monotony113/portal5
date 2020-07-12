@@ -256,6 +256,7 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
     ENDPOINT_SETTINGS = '/settings'
     ENDPOINT_UNINSTALL = '/~uninstall'
     ENDPOINT_RESET = '/~reset'
+    ENDPOINT_DISAMBIGUATE = '/~disambiguate'
 
     COOKIE_MAX_AGE = 86400 * 365
 
@@ -336,10 +337,11 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
         settings = {**self.make_client_prefs(), 'passthru': self._passthru_conf}
 
         settings['endpoints'] = {
-            self.ENDPOINT_INIT: 'directFetch',
-            self.ENDPOINT_SETTINGS: 'authRequired',
-            self.ENDPOINT_UNINSTALL: 'directFetch',
-            self.ENDPOINT_RESET: 'directFetch',
+            self.ENDPOINT_INIT: 'passthru',
+            self.ENDPOINT_SETTINGS: 'restricted',
+            self.ENDPOINT_UNINSTALL: 'passthru',
+            self.ENDPOINT_RESET: 'passthru',
+            self.ENDPOINT_DISAMBIGUATE: 'disambiguate',
         }
 
         settings['id'] = identity or self.id or str(uuid.uuid4())

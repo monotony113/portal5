@@ -29,8 +29,9 @@ function log(msg, fd) {
 
 async function initServiceWorker() {
     const waitAndReload = async () => {
-        log('window.location.reload')
-        window.location = new URLSearchParams(window.location.search).get('continue')
+        let dest = new URLSearchParams(window.location.search).get('continue')
+        log(`opening ${dest.substr(1)}`)
+        window.location = dest
     }
     let registration = await navigator.serviceWorker.getRegistration()
     if (registration) await registration.unregister()

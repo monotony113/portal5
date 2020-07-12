@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script>
+        fetch('/307-1', {
+            mode: 'cors',
+            headers: {
+                'X-Test-Redirect-Header': 'abc',
+                'Accept-Language': 'de-CH',
+            },
+            redirect: 'follow',
+        })
+        let form = new FormData()
+        form.append('name1', 'value1')
+        form.append('key2', 'value42')
+        fetch('/307-1', {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'X-Test-Redirect-Header': 'def',
+                'Accept-Language': 'de-CH',
+            },
+            redirect: 'follow',
+            body: form,
+        });
+    </script>
+</head>
+
+<body>
+</body>
+
+</html>

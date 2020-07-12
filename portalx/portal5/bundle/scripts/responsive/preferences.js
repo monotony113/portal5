@@ -131,14 +131,14 @@ window.addEventListener('load', () => {
     document.querySelectorAll('.toggle-button').forEach((btn) => {
         btn.addEventListener('click', (ev) => {
             if (preferences.hasPendingChanges) return
-            const container = ev.target.closest('.option-container')
+            const container = ev.currentTarget.closest('.option-container')
             if (!preferences.syncOptions(container.id)) preferences.getOption(container.id).value = undefined
         })
     })
 
     document.querySelectorAll('label').forEach((l) => {
         l.addEventListener('click', (ev) => {
-            const option = ev.target.closest('.option-container')
+            const option = ev.currentTarget.closest('.option-container')
             preferences.getOption(option.id).toggleDescription()
         })
     })

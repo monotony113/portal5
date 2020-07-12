@@ -1,6 +1,6 @@
 // rewriter.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-//
+// /* {% if retain_comments %} */
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,79 +13,60 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// /* {% endif %} */
 
 /* {% set retain_import_exports = False %} */
 /* {% if retain_import_exports %} */
-const { Utils } = require('./utils')
+const { Utils } = require('./utils').default
 /* {% endif %} */
 
 class Rewriters {
-    static async synthesizeURL(requested, referrer, client, savedClients, prefix) {
-        let location = null
-        let represented = null
+    static synthesizeURL(base, referrer, requested, prefix) {
         let synthesized = {
-            referrer: null,
-            url: new URL('http://example.org'),
+            base: null,
+            ref: null,
+            dest: new URL('http://example.org'),
         }
 
-        if (client) {
-            location = new URL(client.url)
-            try {
-                represented = new URL(location.pathname.substr(1))
-            } catch (e) {
-                if (savedClients) {
-                    let stored = savedClients.get(client.id)
-                    if (stored) {
-                        represented = new URL(stored.represented)
-                        represented.pathname = location.pathname
-                    }
-                }
-            }
-            if (represented) {
-                represented.search = location.search
-                represented.hash = location.hash
-            }
-        }
+        if (!base) base = referrer
+        if (!referrer) referrer = base
 
-        if (savedClients && represented) savedClients.add(client.id, represented.href)
-
-        if (!represented) represented = referrer
-        if (!referrer) referrer = represented
+        if (base) synthesized.base = new URL(base)
 
         if (referrer) {
             try {
-                synthesized.referrer = new URL(referrer.pathname.substr(1))
-                synthesized.referrer.search = referrer.search
-                synthesized.referrer.hash = referrer.hash
+                synthesized.ref = new URL(referrer.pathname.substr(1))
+                synthesized.ref.search = referrer.search
+                synthesized.ref.hash = referrer.hash
             } catch (e) {
-                if (represented) {
-                    synthesized.referrer = referrer
-                    synthesized.referrer.protocol = represented.protocol
-                    synthesized.referrer.host = represented.host
+                if (base) {
+                    synthesized.ref = new URL(referrer)
+                    synthesized.ref.protocol = base.protocol
+                    synthesized.ref.host = base.host
                 }
             }
         }
 
         if (prefix != requested.origin) {
-            synthesized.url = new URL(requested)
+            synthesized.dest = new URL(requested)
         } else {
             try {
-                synthesized.url = new URL(requested.pathname.substr(1))
+                synthesized.dest = new URL(requested.pathname.substr(1))
             } catch (e) {
-                if (synthesized.referrer) {
-                    synthesized.url = new URL(synthesized.referrer)
+                if (synthesized.ref) {
+                    synthesized.dest = new URL(synthesized.ref)
                 } else {
-                    synthesized.url = new URL(prefix)
+                    synthesized.dest = new URL(prefix)
                 }
-                synthesized.url.pathname = requested.pathname
+                synthesized.dest.pathname = requested.pathname
             }
         }
 
-        synthesized.url.search = requested.search
-        synthesized.url.hash = requested.hash
+        synthesized.dest.search = requested.search
+        synthesized.dest.hash = requested.hash
 
         try {
-            synthesized.url = new URL(Utils.trimPrefix(synthesized.url.href, prefix + '/'), prefix)
+            synthesized.dest = new URL(Utils.trimPrefix(synthesized.dest.href, prefix + '/'), prefix)
         } catch (e) {
             ;() => {}
         }

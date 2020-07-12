@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from flask import Blueprint, Response, render_template, request, stream_with_context
+from flask import Blueprint, Response, jsonify, redirect, render_template, request, stream_with_context
 
 _debug = Blueprint(
     '_debug', __name__,
@@ -45,3 +45,22 @@ def info():
         yield '</code></pre>'
 
     return Response(stream_with_context(gen_info()), mimetype='text/html')
+
+
+@_debug.route('/redirect')
+def test_redirect():
+    return render_template('_debug/redirect.html')
+
+
+@_debug.route('/307-1', methods=('GET', 'POST'))
+def test_redirect_1():
+    return redirect('/307-2', 307)
+
+
+@_debug.route('/307-2', methods=('GET', 'POST'))
+def test_redirect_2():
+    return jsonify({
+        'headers': {**request.headers},
+        'cookies': {**request.cookies},
+        'form': {**request.form},
+    })

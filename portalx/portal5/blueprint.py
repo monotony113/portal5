@@ -15,7 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import wraps
-from urllib.parse import SplitResult, quote, unquote, urljoin
+from urllib.parse import SplitResult, quote, unquote, urljoin, urlsplit
 
 from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, Request, Response, abort, current_app, g, redirect, render_template, request
@@ -200,6 +200,30 @@ def request_with_worker(requested: SplitResult):
 @portal5.route('/<path:requested>', methods=('POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def request_no_worker(requested: SplitResult):
     return fetch(resolve_url(requested))
+
+
+@portal5.route(Portal5.ENDPOINT_DISAMBIGUATE, methods=('POST',))
+@security.referrer_policy('no-referrer')
+def disambiguate():
+    request_info = dict(**request.json)
+    try:
+        candidates = request_info.get('candidates', [])
+        candidates = {i['dest']: i for i in candidates}
+        candidates = [{k: urlsplit(v) for k, v in candidate.items()} for candidate in candidates.values()]
+        candidates = sorted(candidates, key=lambda d: d['dest'])
+        return render_template(f'{APPNAME}/disambiguate.html', candidates=candidates, info=request_info)
+    except Exception as e:
+        raise e
+    except KeyError:
+        abort(400)
+
+
+@portal5.route('/~deflect', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+def deflect():
+    destination = request.args.get('to')
+    if not destination:
+        return abort(400)
+    return redirect(unquote(destination), 307)
 
 
 def resolve_url(requested: SplitResult, *, prefix=''):

@@ -94,6 +94,12 @@ main {
     margin: 1rem 1rem 3rem 1rem;
 }
 
+p,
+span {
+    hyphens: auto;
+    overflow-wrap: break-word;
+}
+
 a {
     color: #5cadf1;
 }
@@ -159,6 +165,9 @@ article h2 {
     }
 }
 @media screen and (max-width: 768px) {
+    body {
+        font-size: 1.2em;
+    }
     header,
     article {
         margin: auto 3% auto;
@@ -345,4 +354,14 @@ pre {
 
 .cjk-serif {
     font-family: 'Noto Serif SC', 'Songti SC', 'Adobe Song Std', serif;
+}
+
+.invisible {
+    opacity: 0;
+    height: 0;
+    width: 0;
+}
+
+* {
+    -webkit-font-smoothing: antialiased;
 }

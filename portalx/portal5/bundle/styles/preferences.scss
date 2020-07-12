@@ -1,0 +1,132 @@
+button {
+    border: none;
+    margin: 0;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    cursor: pointer;
+    height: 1.4rem;
+    font-size: 12pt;
+
+    &.toggle-button {
+        width: 3rem;
+    }
+}
+
+label {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.option-container {
+    display: flex;
+    margin: 1rem 0 0 0;
+    width: 100%;
+    flex-direction: column;
+
+    .option {
+        display: flex;
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        margin: 2pt 0 2pt 0;
+    }
+
+    .option-bullet {
+        display: inline-block;
+        margin: 0 5pt auto 0;
+    }
+
+    .option-description {
+        margin: 0 0 0 1.5rem;
+
+        p {
+            margin-bottom: 0;
+        }
+    }
+
+    .option-name {
+        margin: 0;
+        display: flex;
+        margin: 0 5pt 0;
+    }
+
+    .multi-option-confirm {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        margin: 0;
+
+        &.hidden {
+            display: none;
+        }
+
+        h6 {
+            margin: 6pt 0 6pt 0;
+            flex-basis: 100%;
+            text-align: right;
+        }
+    }
+}
+
+.form-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin: 2rem 0 0.5rem 0;
+
+    button {
+        width: initial;
+        height: 2rem;
+        font-size: 16pt;
+    }
+
+    p {
+        margin: 0 1rem 0 0;
+    }
+}
+
+.form-postscript {
+    display: flex;
+    align-items: flex-end;
+    flex-flow: column;
+
+    * {
+        width: max-content;
+    }
+
+    h6 {
+        margin: 0.5rem 0;
+        text-align: end;
+    }
+}
+
+#updated {
+    display: none;
+
+    &:target {
+        display: initial;
+    }
+}
+
+.rotate-90d {
+    transform: rotate(90deg);
+}
+
+.collapsed {
+    display: none;
+}
+
+.highlighted {
+    background-color: #1e3b53c9;
+    outline: #1e3b53c9 solid 5pt;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+br {
+    margin-top: 1rem;
+}

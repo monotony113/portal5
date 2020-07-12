@@ -1,0 +1,42 @@
+{% extends 'portal5/components/portal5.html' %}
+
+{% set title = 'portal5:disambiguate' %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="/~/static/styles/disambiguate.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/~/scripts/responsive/disambiguate.js"></script>
+{% endblock %}
+
+{% block main %}
+<form id="mainForm" action="/~disambiguate" method="{{ info['method'] }}">
+    <input type="hidden" name="referrer" required value="">
+    <input type="hidden" name="dest" required value="">
+    <input type="hidden" name="request_opts" required value="{{ info['id'] }}">
+    {% for candidate in candidates %}
+    {% set base = candidate['base'] %}
+    {% set referrer = candidate['ref'] %}
+    {% set dest = candidate['dest'] %}
+    <div class="candidate-container container-style-{{ loop.index % 2 }}" id="url-candidate-{{ loop.index }}" data-referrer="{{ referrer.geturl() }}"
+        data-dest="{{ dest.geturl() }}">
+        <div class="urls">
+            {% for label, url in {'from': base, 'to': dest}.items() %}
+            <div class="url-entry {{ label }}-url">
+                <p class="inline-blocks-oneline label-container"><span class="label">{{ label }}</span class="label"></p>
+                <p class="inline-blocks-oneline url-list">
+                    <span class="url-concise">{{ url.netloc + url.path }}</span>
+                    <code class="url-full hidden">{{ url.geturl() }}</code>
+                </p>
+            </div>
+            {% endfor %}    
+        </div>
+        <div class="actions hidden">
+            <button type="submit" name="submit" class="button-visit">Visit</button>
+        </div>
+    </div>
+    {% endfor %}
+</form>
+{% endblock %}

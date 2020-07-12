@@ -112,8 +112,8 @@ def preferences():
 @mimetype('js')
 def scripts(file):
     res = Response(render_template(f'scripts/{file}'))
-    res.headers['Cache-Control'] = 'public, max-age=86400, must-revalidate'
-    res.add_etag()
+    res.headers['Cache-Control'] = 'no-store'
+    # res.add_etag()
     return res
 
 
