@@ -21,7 +21,7 @@
         "babel-eslint": "^10.1.0"
     },
     "scripts": {
-        "bundle": "browserify -s parse5 bundle.js | terser --compress --mangle > static/bundle.min.js",
+        "bundle": "browserify -s parse5 bundle.js | terser --compress --mangle > static/scripts/bundle.min.js",
         "compile-css": "sass styles/:static/styles -s compressed"
     }
 }

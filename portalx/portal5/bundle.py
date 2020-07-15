@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import base64
+import json
 from functools import wraps
 
 from flask import Blueprint, Response, abort, g, render_template, request
@@ -116,10 +118,14 @@ def preferences():
 
 
 @p5bundle.route('/scripts/observer.js')
-@config.client_side_handler('passthrough', mode=('no-cors',))
+@config.client_side_handler('passthrough', mode=('no-cors',), referrer=None)
 @mimetype('js')
 def dispatch_observer():
-    return render_template('scripts/observer.js')
+    try:
+        args = json.loads(base64.b64decode(request.args.get('args')).decode())
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return abort(400)
+    return render_template('scripts/observer.js', **args)
 
 
 @p5bundle.route('/scripts/<path:file>')

@@ -43,7 +43,7 @@ class Utils {
     }
 
     static trimPrefix(str, prefix) {
-        if (str.startsWith(prefix)) return this.trimPrefix(str.substr(prefix.length), prefix)
+        if (str.startsWith(prefix)) return this.trimPrefix(str.slice(prefix.length), prefix)
         return str
     }
 
@@ -98,7 +98,7 @@ class ClientRecordStorage extends TranscientStorage {
         return super.remove(id, 'client')
     }
     trim() {
-        Promise.all(super.keys('client').map(async (k) => [k, await clients.get(k.substr(7))])).then((r) =>
+        Promise.all(super.keys('client').map(async (k) => [k, await clients.get(k.slice(7))])).then((r) =>
             r.filter((r) => !r[1]).forEach((r) => delete this[r[0]])
         )
     }

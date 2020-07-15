@@ -30,7 +30,7 @@ function log(msg, fd) {
 async function initServiceWorker() {
     const waitAndReload = async () => {
         let dest = new URLSearchParams(window.location.search).get('continue')
-        log(`opening ${dest.substr(1)}`)
+        log(`opening ${dest.slice(1)}`)
         window.location = dest
     }
     let registration = await navigator.serviceWorker.getRegistration()

@@ -20,6 +20,9 @@
 /* {% set retain_comments = False %} */
 /* {% set retain_import_exports = False %} */
 
+//
+//
+
 /* {% if retain_comments %} */
 /**
  * The require statements here are for local development only (for type hinting, etc).
@@ -39,6 +42,9 @@ const { Portal5 } = require('./portal5')
 importScripts('/~/scripts/injector.js', '/~/scripts/rewriter.js', '/~/scripts/portal5.js', '/~/scripts/utils.js')
 // importScripts('/~/static/scripts/lodash.min.js')
 
+//
+//
+
 function securityCheck(event) {
     /** @type {Request} */
     let request = event.request
@@ -48,6 +54,9 @@ function securityCheck(event) {
 class DefinedHandlers {
     static passthrough(event) {
         return event.respondWith(fetch(event.request))
+    }
+    static forbidden(event) {
+        return event.respondWith(new Response('', { status: 403 }))
     }
     static restricted(event) {
         /** @type {Request} */
@@ -77,9 +86,6 @@ class DefinedHandlers {
                 return doFetch(new Request(request.url, requestOpts))
             })()
         )
-    }
-    static forbidden(event) {
-        return event.respondWith(new Response('', { status: 403 }))
     }
     static disambiguate(event) {
         return event.respondWith(
@@ -136,7 +142,7 @@ function noRewrite(event) {
     if (!self.settings.prefs.local['basic_rewrite_crosssite']) {
         if (self.server != requested.origin) return event.respondWith(fetch(request.clone()))
     }
-    if (request.mode == 'navigate' && requested.pathname.substr(0, 8) == '/direct/')
+    if (request.mode == 'navigate' && requested.pathname.slice(0, 8) == '/direct/')
         return event.respondWith(fetch(request.clone()))
 }
 
@@ -167,7 +173,7 @@ async function getLocations(event, savedClients) {
 
         let represented
         try {
-            represented = new URL(location.pathname.substr(1))
+            represented = new URL(location.pathname.slice(1))
         } catch (e) {
             if (savedClients) {
                 let stored = savedClients.get(windowClient.id)
@@ -291,7 +297,7 @@ async function interceptFetch(event) {
     return doFetch(outbound, {
         injection_dom_hijack: {
             run: Portal5.rewriteResponse,
-            args: [self.server, dest],
+            args: [dest],
         },
     })
 }

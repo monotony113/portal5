@@ -35,7 +35,7 @@ class Rewriters {
 
         if (referrer) {
             try {
-                synthesized.ref = new URL(referrer.pathname.substr(1))
+                synthesized.ref = new URL(referrer.pathname.slice(1))
                 synthesized.ref.search = referrer.search
                 synthesized.ref.hash = referrer.hash
             } catch (e) {
@@ -51,7 +51,7 @@ class Rewriters {
             synthesized.dest = new URL(requested)
         } else {
             try {
-                synthesized.dest = new URL(requested.pathname.substr(1))
+                synthesized.dest = new URL(requested.pathname.slice(1))
             } catch (e) {
                 if (synthesized.ref) {
                     synthesized.dest = new URL(synthesized.ref)

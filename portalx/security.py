@@ -260,6 +260,8 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin, r
         for directive, options in policies.items():
             if directive in non_source_directives:
                 continue
+            if "'strict-dynamic'" in options:
+                continue
             if "'none'" not in options:
                 options.add(server_origin)
             if "'self'" in options:
