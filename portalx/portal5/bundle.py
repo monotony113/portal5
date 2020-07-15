@@ -32,6 +32,11 @@ p5bundle = Blueprint(
 )
 
 
+@p5bundle.before_app_first_request
+def setup():
+    config.resolve_client_handlers(APPNAME)
+
+
 @p5bundle.before_request
 def parse_p5():
     g.p5 = Portal5(request)
@@ -91,6 +96,7 @@ def service_worker():
         if session_id != session_claim:
             return abort(401)
         p5.set_bitmask(access_claims.get('variant'))
+        p5.signals = access_claims.get('signals')
     else:
         return abort(401)
 
@@ -107,6 +113,13 @@ def service_worker():
 @mimetype('js')
 def preferences():
     return render_template('scripts/responsive/preferences.js', **get_p5().make_dependency_dicts())
+
+
+@p5bundle.route('/scripts/observer.js')
+@config.client_side_handler('passthrough', mode=('no-cors',))
+@mimetype('js')
+def dispatch_observer():
+    return render_template('scripts/observer.js')
 
 
 @p5bundle.route('/scripts/<path:file>')

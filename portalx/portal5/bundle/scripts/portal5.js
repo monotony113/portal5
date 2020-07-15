@@ -23,15 +23,13 @@ const parse5 = require('parse5')
 const { Injector } = require('./injector')
 /* {% endif %} */
 
-const observerScript = `{% include "scripts/observer.js" %}`
-
 class Portal5 {
     constructor(settings) {
         this.id = settings.id
         this.version = settings.version
         this.secret = settings.secret
         this.prefs = settings.prefs.value
-        this.actions = {}
+        this.signals = Object.assign({}, settings.signals)
     }
     setReferrer(request, referrer, destination) {
         this.mode = request.mode
@@ -67,10 +65,10 @@ class Portal5 {
             }
         }
     }
-    setDirective(directives) {
+    applyDirective(directives) {
         if (directives['revalidate-on-next-request']) {
             delete directives['revalidate-on-next-request']
-            this.actions['revalidate'] = true
+            this.signals['revalidate'] = true
         }
     }
     writeHeader(headers, mode) {
@@ -79,10 +77,10 @@ class Portal5 {
         let attributes = []
         switch (mode) {
             case 'regular':
-                attributes = ['version', 'prefs', 'mode', 'origin', 'referrer', 'actions']
+                attributes = ['version', 'prefs', 'mode', 'origin', 'referrer', 'signals']
                 break
             case 'identity':
-                attributes = ['id', 'version', 'prefs', 'actions']
+                attributes = ['id', 'version', 'prefs', 'signals']
                 break
             default:
                 break
@@ -102,7 +100,10 @@ class Portal5 {
                 let body = null
                 if (text.length) {
                     let document = parse5.parse(text)
-                    let observer = Injector.makeElementNode('script', {}, observerScript)
+                    let observer = Injector.makeElementNode('script', {
+                        src: `/~/scripts/observer.js?args=${btoa(JSON.stringify({prefix: prefix, base: base}))}`,
+                        referrerpolicy: 'no-referrer',
+                    })
                     let head = Injector.dfsFirstInTree(document, (node) => node.tagName === 'head', 'childNodes')
                     Injector.prepend(head, observer)
                     body = parse5.serialize(document)

@@ -25,6 +25,7 @@ from flask import Request, Response
 
 from .. import common, security
 from ..jwtkit import JWTKit, get_all_jwts, get_private_claims
+from . import config
 from .bitmasklib import mask_to_bits, bits_to_mask, constrain_ones
 
 APPNAME = 'portal5'
@@ -33,11 +34,16 @@ APPNAME = 'portal5'
 class PreferenceMixin:
     __slots__ = ()
 
-    def __init__(self):
+    def __init__(self, request):
         if self.prefs is not None:
             self.set_bitmask(self.prefs)
         else:
-            self.set_bitmask(bits_to_mask(self._defaults))
+            prefs = request.cookies.get(self.COOKIE_PREFS, None, int)
+            if prefs:
+                self.set_bitmask(prefs)
+            else:
+                self.signals['nopref'] = 1
+                self.set_bitmask(bits_to_mask(self._defaults))
 
         self.register_action(self.write_prefs_cookie)
 
@@ -72,7 +78,11 @@ class PreferenceMixin:
 
     @classmethod
     def write_prefs_cookie(cls, p5, response):
-        response.set_cookie(cls.COOKIE_PREFS, str(p5.get_bitmask()), max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
+        if p5.signals.get('nopref'):
+            bitmask = ''
+        else:
+            bitmask = str(p5.get_bitmask())
+        response.set_cookie(cls.COOKIE_PREFS, bitmask, max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
 
     def print_prefs(self, **kwargs):
         prefs = {}
@@ -177,26 +187,26 @@ class PostprocessingMixin:
     __slots__ = ()
 
     def __init__(self):
-        self.late_actions = []
+        self.after_request = []
 
     def register_action(self, action):
-        self.late_actions.append(action)
+        self.after_request.append(action)
 
     @classmethod
     def postprocess(cls, getter):
         def process(response):
             p5: cls = getter()
-            for action in p5.late_actions:
+            for action in p5.after_request:
                 action(p5, response)
             return response
         return process
 
 
-class DirectiveMixin:
+class WorkerSignalMixin:
     __slots__ = ()
 
     def __init__(self):
-        self.actions = self.actions or {}
+        self.signals = self.signals or {}
         self.directives = set()
         self.register_action(Portal5.set_directive_header)
 
@@ -211,19 +221,20 @@ FEATURES_KEYS = {
     0: 'basic_rewrite_crosssite',
     1: 'basic_set_headers',
     2: 'basic_set_cookies',
-    3: 'security_enforce_cors',
-    4: 'security_break_csp',
-    5: 'security_clear_cookies_on_navigate',
-    6: 'injection_dom_hijack',
+    3: 'disambiguation_test_url',
+    4: 'security_enforce_cors',
+    5: 'security_break_csp',
+    6: 'security_clear_cookies_on_navigate',
+    7: 'injection_dom_hijack',
 }
 FEATURES_VALUES = {v: k for k, v in FEATURES_KEYS.items()}
 
-FEATURES_DEFAULTS = {0, 1, 2, 3}
+FEATURES_DEFAULTS = {0, 1, 2, 3, 4}
 
 FEATURES_DEPENDENCIES = {
-    3: {1},
     4: {1},
-    6: {0, 4},
+    5: {1},
+    7: {0, 5},
 }
 FEATURES_DEPENDENCIES = {k: reduce(lambda x, y: x | FEATURES_DEPENDENCIES.get(y, set()), v, v) for k, v in FEATURES_DEPENDENCIES.items()}
 
@@ -233,17 +244,16 @@ for k, v in FEATURES_DEPENDENCIES.items():
         req = FEATURES_REQUIREMENTS.setdefault(r, set())
         req.add(k)
 
-FEATURES_CLIENT_SPECIFIC = {0, 6}
-FEATURES_BUNDLE_REQUIRING = {6}
+FEATURES_CLIENT_SPECIFIC = {0, 3, 7}
+FEATURES_BUNDLE_REQUIRING = {7}
 
 
-class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, FeaturesMixin):
+class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin, FeaturesMixin):
     __slots__ = (
         'id', 'version', 'prefs',
         'mode', 'referrer', 'origin',
-        'directives', 'actions',
-        'tokens', 'tokens_max_age',
-        'late_actions',
+        'directives', 'signals',
+        'tokens', 'after_request',
     )
 
     VERSION = None
@@ -251,14 +261,6 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
     HEADER = 'X-Portal5'
     COOKIE_PREFS = 'portal5prefs'
     COOKIE_AUTH = 'portal5auth'
-
-    ENDPOINT_INIT = '/init'
-    ENDPOINT_SETTINGS = '/settings'
-    ENDPOINT_UNINSTALL = '/~uninstall'
-    ENDPOINT_RESET = '/~reset'
-    ENDPOINT_DEFLECT = '/~deflect'
-    ENDPOINT_MULTI_CHOICES = '/~multiple-choices'
-    ENDPOINT_DISAMBIGUATE = '/~disambiguate'
 
     COOKIE_MAX_AGE = 86400 * 365
 
@@ -268,12 +270,9 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
     _dependencies = FEATURES_DEPENDENCIES
 
     _fernet: Fernet = None
-    _passthru_conf: dict = None
+    _passthrough_conf: dict = None
 
     def __init__(self, request: Request):
-        PostprocessingMixin.__init__(self)
-        JWTMixin.__init__(self, request)
-
         try:
             fetch = json.loads(request.headers.get(self.HEADER, '{}'))
         except Exception:
@@ -283,15 +282,14 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
             if not hasattr(self, k):
                 setattr(self, k, fetch.get(k, None))
 
-        if self.prefs is None:
-            self.prefs = request.cookies.get(self.COOKIE_PREFS, None, int)
-
-        PreferenceMixin.__init__(self)
-        DirectiveMixin.__init__(self)
+        PostprocessingMixin.__init__(self)
+        WorkerSignalMixin.__init__(self)
+        JWTMixin.__init__(self, request)
+        PreferenceMixin.__init__(self, request)
 
     @property
     def valid(self):
-        return 'revalidate' not in self.actions and self.version is not None
+        return 'revalidate' not in self.signals and self.version is not None
 
     @property
     def up_to_date(self):
@@ -336,22 +334,15 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
         return kwargs
 
     def make_worker_settings(self, identity, server):
-        settings = {**self.make_client_prefs(), 'passthru': self._passthru_conf}
-
-        settings['endpoints'] = {
-            '/': 'passthru',
-            self.ENDPOINT_INIT: 'passthru',
-            self.ENDPOINT_SETTINGS: 'restricted',
-            self.ENDPOINT_UNINSTALL: 'passthru',
-            self.ENDPOINT_RESET: 'passthru',
-            self.ENDPOINT_DEFLECT: 'passthru',
-            self.ENDPOINT_MULTI_CHOICES: 'passthru',
-            self.ENDPOINT_DISAMBIGUATE: 'disambiguate',
+        settings = {
+            **self.make_client_prefs(),
+            'id': identity or self.id or str(uuid.uuid4()),
+            'version': self.VERSION,
+            'signals': self.signals,
+            'origin': server,
+            'endpoints': config.endpoint_handlers,
+            'passthrough': config.passthrough_rules,
         }
-
-        settings['id'] = identity or self.id or str(uuid.uuid4())
-        settings['version'] = self.VERSION
-        settings['origin'] = server
 
         return settings
 

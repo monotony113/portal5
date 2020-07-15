@@ -40,11 +40,16 @@ def get_p5() -> Portal5:
 
 
 @portal5.before_app_first_request
-def codename():
+def setup():
     conf = current_app.config.get_namespace('PORTAL5_')
+
     Portal5.VERSION = conf['worker_codename']
     Portal5._fernet = Fernet(conf['secret_key'].encode())
-    Portal5._passthru_conf = config.collect_passthru_urls()
+
+    config.add_client_handler('/~disambiguate', 'disambiguate')
+
+    config.collect_passthrough_urls()
+    config.resolve_client_handlers(APPNAME)
 
 
 @portal5.before_request
@@ -97,18 +102,21 @@ def revalidate_if_outdated(view_func):
 
 @portal5.route('/')
 @portal5.route('/index.html')
+@config.client_side_handler('passthrough')
 @security.access_control_allow_origin('*')
 def home():
     return render_template(f'{APPNAME}/index.html')
 
 
 @portal5.route('/favicon.ico')
+@config.client_side_handler('passthrough')
 @security.access_control_allow_origin('*')
 def favicon():
     return portal5.send_static_file('favicon.ico')
 
 
-@portal5.route(Portal5.ENDPOINT_INIT, methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@portal5.route('/init', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@config.client_side_handler('passthrough')
 @security.access_control_same_origin
 @security.csp_protected
 @security.referrer_policy('no-referrer')
@@ -116,7 +124,8 @@ def install_worker():
     return render_template(f'{APPNAME}/init.html')
 
 
-@portal5.route(Portal5.ENDPOINT_SETTINGS, methods=('OPTIONS',))
+@portal5.route('/settings', methods=('OPTIONS',))
+@config.client_side_handler('passthrough')
 @security.access_control_same_origin
 def settings_options():
     res = Response('', 204)
@@ -125,7 +134,8 @@ def settings_options():
     return res
 
 
-@portal5.route(Portal5.ENDPOINT_SETTINGS)
+@portal5.route('/settings')
+@config.client_side_handler('restricted')
 @requires_worker
 @requires_identity
 @revalidate_if_outdated
@@ -145,7 +155,8 @@ def get_prefs():
     return res
 
 
-@portal5.route(Portal5.ENDPOINT_SETTINGS, methods=('POST',))
+@portal5.route('/settings', methods=('POST',))
+@config.client_side_handler('restricted')
 @requires_worker
 @requires_identity
 @revalidate_if_outdated
@@ -176,20 +187,28 @@ def save_prefs():
 
     if prefs.pop('action') == 'reset':
         prefs = p5.make_default_prefs()
+        signals = {'nopref': 1}
     else:
         prefs = {k for k, v in prefs.items() if v.isnumeric() and int(v)}
+        signals = {}
 
-    p5.issue_new_token(request.remote_addr, 'update', session=get_jwt()['jti'], variant=p5.prefs_to_bitmask(prefs))
+    p5.issue_new_token(
+        request.remote_addr, 'update',
+        session=get_jwt()['jti'],
+        variant=p5.prefs_to_bitmask(prefs),
+        signals=signals,
+    )
     p5.persist_tokens()
 
     return render_template(f'{APPNAME}/update.html')
 
 
-@portal5.route(Portal5.ENDPOINT_MULTI_CHOICES, methods=('GET', 'POST'))
+@portal5.route('/~multiple-choices', methods=('GET', 'POST'))
+@config.client_side_handler('passthrough')
 @requires_worker
 @security.referrer_policy('no-referrer')
 def multiple_choices():
-    request_info = dict(**request.json) if request.json else get_p5().actions.get('disambiguate', {})
+    request_info = dict(**request.json) if request.json else get_p5().signals.get('disambiguate', {})
     try:
         candidates = request_info.get('candidates', [])
         candidates = {i['dest']: i for i in candidates}
@@ -200,7 +219,8 @@ def multiple_choices():
         abort(400)
 
 
-@portal5.route(Portal5.ENDPOINT_DEFLECT, methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@portal5.route('/~deflect', methods=('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@config.client_side_handler('passthrough')
 @security.referrer_policy('no-referrer')
 def deflect():
     destination = request.args.get('to')
@@ -267,14 +287,16 @@ def fetch(url: SplitResult):
     return response
 
 
-@portal5.route(Portal5.ENDPOINT_RESET)
+@portal5.route('/~reset')
+@config.client_side_handler('passthrough')
 @security.clear_site_data()
 def reset():
     res = Response('', status=204)
     return res
 
 
-@portal5.route(Portal5.ENDPOINT_UNINSTALL)
+@portal5.route('/~uninstall')
+@config.client_side_handler('passthrough')
 def uninstall():
     return render_template(f'{APPNAME}/uninstall.html')
 

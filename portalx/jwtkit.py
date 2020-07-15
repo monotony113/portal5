@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Hashable, Mapping, MutableSet
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import Dict, List
 
 import jwt
 import simplejson

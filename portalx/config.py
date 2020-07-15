@@ -19,8 +19,8 @@
 #     dict(name='http://*', description='No plain-text HTTP', test=lambda r: urlsplit(r.url).scheme == 'http'),
 # ]
 
-# PORTAL5_PASSTHRU_DOMAINS = {'fonts.googleapis.com', 'fonts.gstatic.com'}
-# PORTAL5_PASSTHRU_URLS = {}
+PORTAL5_PASSTHROUGH_DOMAINS = {'fonts.googleapis.com', 'fonts.gstatic.com'}
+# PORTAL5_PASSTHROUGH_URLS = {}
 
 LANGUAGES = ['en', 'zh_cn']
 

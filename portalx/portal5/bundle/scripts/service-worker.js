@@ -46,7 +46,7 @@ function securityCheck(event) {
 }
 
 class DefinedHandlers {
-    static passthru(event) {
+    static passthrough(event) {
         return event.respondWith(fetch(event.request))
     }
     static restricted(event) {
@@ -68,7 +68,7 @@ class DefinedHandlers {
         }
 
         let p5 = new Portal5(self.settings)
-        p5.setDirective(self.directives)
+        p5.applyDirective(self.directives)
         p5.writeHeader(requestOpts.headers, 'identity')
 
         return event.respondWith(
@@ -116,9 +116,16 @@ function withDefinedHandlers(event) {
     /** @type {Request} */
     let request = event.request
     let url = new URL(request.url)
-    if (!request.referrer && request.mode === 'navigate' && (request.method === 'GET' || request.method === 'POST')) {
-        let handler = self.settings.endpoints[url.pathname]
-        if (handler) return DefinedHandlers[handler](event)
+    let endpoint = self.settings.endpoints[url.pathname]
+    if (!endpoint) return
+
+    let { handler, test } = endpoint
+    if (handler) {
+        for (let param in test) {
+            let allowedValues = test[param]
+            if (!(request[param] in allowedValues)) return
+        }
+        return DefinedHandlers[handler](event)
     }
 }
 
@@ -134,7 +141,7 @@ function noRewrite(event) {
 }
 
 function shouldPassthru(url) {
-    return url.hostname in self.settings.passthru.domains || url.href in self.settings.passthru.urls
+    return url.hostname in self.settings.passthrough.domains || url.href in self.settings.passthrough.urls
 }
 
 function makeRedirect(url) {
@@ -196,7 +203,7 @@ async function filterMultipleChoices(destinations) {
     }
     destinations = Object.values(deduped)
     if (j === 1) return destinations
-    if (self.settings.prefs.local['disambiguation_test_url_with_head']) {
+    if (self.settings.prefs.local['disambiguation_test_url']) {
         try {
             destinations = (
                 await Promise.all(
@@ -236,7 +243,7 @@ async function doMultipleChoices(request, destinations) {
         redirect: 'manual',
     }
     if (request.method === 'GET') {
-        p5.actions['disambiguate'] = JSON.parse(JSON.stringify(metadata))
+        p5.signals['disambiguate'] = JSON.parse(JSON.stringify(metadata))
     } else {
         opts.body = JSON.stringify(metadata)
         opts.headers['Content-Type'] = 'application/json'
@@ -320,7 +327,7 @@ async function makeFetch(request, referrer, destination) {
     let requestOpts = await Utils.makeRequestOptions(request)
     p5.setReferrer(request, referrer, destination)
     if (request.method === 'GET' && request.mode === 'navigate') {
-        p5.setDirective(self.directives)
+        p5.applyDirective(self.directives)
     }
     p5.writeHeader(requestOpts.headers, 'regular')
 
