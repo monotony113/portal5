@@ -61,6 +61,7 @@ def mimetype(mime_):
 
 
 @p5bundle.route('/scripts/controls/init.js')
+@security.clear_site_data('cookies', 'storage')
 @mimetype('js')
 def init_with_token():
     p5 = get_p5()
@@ -111,10 +112,7 @@ def preferences():
 @p5bundle.route('/scripts/<path:file>')
 @mimetype('js')
 def scripts(file):
-    res = Response(render_template(f'scripts/{file}'))
-    res.headers['Cache-Control'] = 'no-store'
-    # res.add_etag()
-    return res
+    return Response(render_template(f'scripts/{file}'))
 
 
 p5bundle.after_request(Portal5.postprocess(get_p5))

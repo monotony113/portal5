@@ -73,7 +73,7 @@ class DefinedHandlers {
 
         return event.respondWith(
             (async () => {
-                if (request.method == 'POST') requestOpts.body = await request.blob()
+                if (request.method === 'POST') requestOpts.body = await request.blob()
                 return doFetch(new Request(request.url, requestOpts))
             })()
         )
@@ -116,7 +116,7 @@ function withDefinedHandlers(event) {
     /** @type {Request} */
     let request = event.request
     let url = new URL(request.url)
-    if (!request.referrer && request.mode == 'navigate' && (request.method == 'GET' || request.method == 'POST')) {
+    if (!request.referrer && request.mode === 'navigate' && (request.method === 'GET' || request.method === 'POST')) {
         let handler = self.settings.endpoints[url.pathname]
         if (handler) return DefinedHandlers[handler](event)
     }
@@ -129,6 +129,8 @@ function noRewrite(event) {
     if (!self.settings.prefs.local['basic_rewrite_crosssite']) {
         if (self.server != requested.origin) return event.respondWith(fetch(request.clone()))
     }
+    if (request.mode == 'navigate' && requested.pathname.substr(0, 8) == '/direct/')
+        return event.respondWith(fetch(request.clone()))
 }
 
 function shouldPassthru(url) {
@@ -147,7 +149,7 @@ async function getLocations(event, savedClients) {
         windows = windows.concat(
             windows,
             (await clients.matchAll({ type: 'window' })).filter(
-                (w) => w.url == event.request.referrer || w.visibilityState == 'visible' || w.focused
+                (w) => w.url === event.request.referrer || w.visibilityState === 'visible' || w.focused
             )
         )
 
@@ -178,7 +180,45 @@ async function getLocations(event, savedClients) {
     return locations
 }
 
-async function doDisambiguation(request, destinations) {
+async function filterMultipleChoices(destinations) {
+    if (destinations.length === 1) return destinations
+    let deduped = {}
+    let j = 0
+    for (let i = 0; i < destinations.length; i++) {
+        let tuple = destinations[i]
+        let href = tuple['dest'].href
+        let existing = deduped[href]
+        if (!existing) {
+            deduped[href] = existing = tuple
+            j++
+        }
+        if (existing.ref.origin === tuple.ref.origin) existing.ref = tuple.ref
+    }
+    destinations = Object.values(deduped)
+    if (j === 1) return destinations
+    if (self.settings.prefs.local['disambiguation_test_url_with_head']) {
+        try {
+            destinations = (
+                await Promise.all(
+                    destinations.map(async (t) => [
+                        t,
+                        await fetch('/direct/' + t.dest.href, {
+                            method: 'HEAD',
+                            redirect: 'manual',
+                        }),
+                    ])
+                )
+            )
+                .filter((p) => p[1].status >= 200 && p[1].status < 300)
+                .map((p) => p[0])
+        } catch (e) {
+            ;() => {}
+        }
+    }
+    return destinations
+}
+
+async function doMultipleChoices(request, destinations) {
     let requestInfo = await Utils.makeRequestOptions(request)
     let metadata = {
         request: requestInfo,
@@ -189,36 +229,36 @@ async function doDisambiguation(request, destinations) {
     self.requestOptsCache.add(requestId, requestInfo, 'request')
     metadata.id = requestId
 
-    return fetch('/~disambiguate', {
-        method: 'POST',
-        body: JSON.stringify(metadata),
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    })
+    let p5 = new Portal5(self.settings)
+    let opts = {
+        method: request.method,
+        headers: {},
+        redirect: 'manual',
+    }
+    if (request.method === 'GET') {
+        p5.actions['disambiguate'] = JSON.parse(JSON.stringify(metadata))
+    } else {
+        opts.body = JSON.stringify(metadata)
+        opts.headers['Content-Type'] = 'application/json'
+    }
+    p5.writeHeader(opts.headers, 'regular')
+
+    return fetch('/~multiple-choices', opts)
 }
 
 async function interceptFetch(event) {
     var request = event.request
     var destinations = await resolveFetch(event)
+    destinations = await filterMultipleChoices(destinations)
 
     let referrer = undefined
     let dest = undefined
-    if (destinations.length == 1) {
+    if (destinations.length === 1) {
         let synthesized = destinations[0]
         referrer = synthesized.ref
         dest = synthesized.dest
-    } else {
-        let deduped = [...new Set(destinations.map((tuple) => tuple.dest.href))]
-        if (deduped.length == 1) {
-            dest = new URL(deduped[0])
-            for (let i = 0; i < destinations.length; i++) {
-                let ref = destinations[i].ref
-                if (ref.origin == dest.origin) referrer = ref
-            }
-        } else if (request.mode == 'navigate') {
-            return doDisambiguation(request, destinations)
-        }
+    } else if (request.mode === 'navigate') {
+        return doMultipleChoices(request, destinations)
     }
 
     if (!dest) {
@@ -279,7 +319,7 @@ async function makeFetch(request, referrer, destination) {
     let p5 = new Portal5(self.settings)
     let requestOpts = await Utils.makeRequestOptions(request)
     p5.setReferrer(request, referrer, destination)
-    if (request.method == 'GET' && request.mode == 'navigate') {
+    if (request.method === 'GET' && request.mode === 'navigate') {
         p5.setDirective(self.directives)
     }
     p5.writeHeader(requestOpts.headers, 'regular')

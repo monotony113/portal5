@@ -31,7 +31,7 @@ class Utils {
             integrity: request.integrity,
             referrer: '',
             referrerPolicy: request.referrerPolicy,
-            mode: request.mode == 'same-origin' || request.mode == 'no-cors' ? 'same-origin' : 'cors',
+            mode: request.mode === 'same-origin' || request.mode === 'no-cors' ? 'same-origin' : 'cors',
         }
 
         let body = await request.blob()
@@ -104,6 +104,25 @@ class ClientRecordStorage extends TranscientStorage {
     }
 }
 
+class NotificationUtils {
+    static askForPermission() {
+        if (!('Notification' in self)) return Promise.resolve()
+        try {
+            return Notification.requestPermission().then(() => {})
+        } catch (e) {
+            Notification.requestPermission(() => {})
+            return Promise.resolve()
+        }
+    }
+    static fireNotification(title, options) {
+        if (!('Notification' in self)) return
+        if (Notification.permission === 'deny') return
+        if (Notification.permission === 'default')
+            return NotificationUtils.askForPermission().then(() => NotificationUtils.fireNotification(title, options))
+        return new Notification(title, options)
+    }
+}
+
 /* {% if retain_import_exports %} */
-module.exports = { TranscientStorage, ClientRecordStorage, Utils }
+module.exports = { TranscientStorage, ClientRecordStorage, NotificationUtils, Utils }
 /* {% endif %} */

@@ -24,7 +24,7 @@ const __portal5MutationObserver = new MutationObserver((mutations) => {
                 for (let node of mutation.addedNodes) console.log('node', node)
                 break
             case 'attributes':
-                if (mutation.target.nodeType == Node.ELEMENT_NODE) {
+                if (mutation.target.nodeType === Node.ELEMENT_NODE) {
                     /** @type {Element} */
                     let element = mutation.target
                     console.log('attribute', element)

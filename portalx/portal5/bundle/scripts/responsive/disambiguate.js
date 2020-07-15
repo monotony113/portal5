@@ -60,6 +60,7 @@ class Candidate {
 
 class Form {
     constructor(formElement) {
+        this.form = formElement
         this.referrerField = formElement.querySelector('input[name="referrer"]')
         this.destField = formElement.querySelector('input[name="dest"]')
 
@@ -70,26 +71,26 @@ class Form {
         for (let i = 0; i < candidateElements.length; i++) {
             let element = candidateElements[i]
             candidates[element.id] = new Candidate(element)
-            element.addEventListener('click', (ev) => {
-                this.toggle(ev.currentTarget.id)
+            element.addEventListener('mouseenter', (ev) => {
+                this.toggle(ev.currentTarget.id, true)
+            })
+            element.addEventListener('mouseleave', (ev) => {
+                this.toggle(ev.currentTarget.id, false)
+            })
+            element.addEventListener('click', () => {
+                this.form.submit()
             })
         }
     }
-    toggle(id) {
-        for (let candidate in this.candidates) {
-            let container = this.candidates[candidate]
-            if (container.id == id) {
-                let isSelected = container.setHighlight()
-                if (isSelected) {
-                    this.referrerField.value = container.referrer
-                    this.destField.value = container.destination
-                } else {
-                    this.referrerField.value = ''
-                    this.destField.value = ''
-                }
-            } else {
-                container.setHighlight(false)
-            }
+    toggle(id, on) {
+        let container = this.candidates[id]
+        container.setHighlight(on)
+        if (on) {
+            this.referrerField.value = container.referrer
+            this.destField.value = container.destination
+        } else {
+            this.referrerField.value = ''
+            this.destField.value = ''
         }
     }
 }

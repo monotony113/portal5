@@ -31,7 +31,7 @@ class Portal5 {
         this.version = settings.version
         this.secret = settings.secret
         this.prefs = settings.prefs.value
-        this.directives = []
+        this.actions = {}
     }
     setReferrer(request, referrer, destination) {
         this.mode = request.mode
@@ -42,7 +42,7 @@ class Portal5 {
                 case 'no-referrer':
                     break
                 case 'no-referrer-when-downgrade':
-                    if (destination.protocol == referrer.protocol) setReferrer('href')
+                    if (destination.protocol === referrer.protocol) setReferrer('href')
                     break
                 case 'origin':
                     setReferrer('origin')
@@ -52,14 +52,14 @@ class Portal5 {
                     else setReferrer('href')
                     break
                 case 'same-origin':
-                    if (destination.origin == referrer.origin) setReferrer('href')
+                    if (destination.origin === referrer.origin) setReferrer('href')
                     break
                 case 'strict-origin':
-                    if (destination.protocol == referrer.protocol) setReferrer('origin')
+                    if (destination.protocol === referrer.protocol) setReferrer('origin')
                     break
                 case 'strict-origin-when-cross-origin':
-                    if (destination.origin == referrer.origin) setReferrer('href')
-                    else if (destination.protocol == referrer.protocol) setReferrer('origin')
+                    if (destination.origin === referrer.origin) setReferrer('href')
+                    else if (destination.protocol === referrer.protocol) setReferrer('origin')
                     break
                 default:
                     setReferrer('href')
@@ -70,7 +70,7 @@ class Portal5 {
     setDirective(directives) {
         if (directives['revalidate-on-next-request']) {
             delete directives['revalidate-on-next-request']
-            this.directives.push('revalidate')
+            this.actions['revalidate'] = true
         }
     }
     writeHeader(headers, mode) {
@@ -79,16 +79,15 @@ class Portal5 {
         let attributes = []
         switch (mode) {
             case 'regular':
-                attributes = ['version', 'prefs', 'mode', 'origin', 'referrer']
+                attributes = ['version', 'prefs', 'mode', 'origin', 'referrer', 'actions']
                 break
             case 'identity':
-                attributes = ['id', 'version', 'prefs']
+                attributes = ['id', 'version', 'prefs', 'actions']
                 break
             default:
                 break
         }
         for (let i = 0; i < attributes.length; i++) p5[attributes[i]] = this[attributes[i]]
-        p5.actions = this.directives.join(',')
 
         headers[Portal5.headerName] = JSON.stringify(p5)
     }
@@ -104,7 +103,7 @@ class Portal5 {
                 if (text.length) {
                     let document = parse5.parse(text)
                     let observer = Injector.makeElementNode('script', {}, observerScript)
-                    let head = Injector.dfsFirstInTree(document, (node) => node.tagName == 'head', 'childNodes')
+                    let head = Injector.dfsFirstInTree(document, (node) => node.tagName === 'head', 'childNodes')
                     Injector.prepend(head, observer)
                     body = parse5.serialize(document)
                 }

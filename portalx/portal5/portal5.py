@@ -196,7 +196,7 @@ class DirectiveMixin:
     __slots__ = ()
 
     def __init__(self):
-        self.actions = set(self.actions.split(',')) if self.actions else set()
+        self.actions = self.actions or {}
         self.directives = set()
         self.register_action(Portal5.set_directive_header)
 
@@ -256,6 +256,8 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
     ENDPOINT_SETTINGS = '/settings'
     ENDPOINT_UNINSTALL = '/~uninstall'
     ENDPOINT_RESET = '/~reset'
+    ENDPOINT_DEFLECT = '/~deflect'
+    ENDPOINT_MULTI_CHOICES = '/~multiple-choices'
     ENDPOINT_DISAMBIGUATE = '/~disambiguate'
 
     COOKIE_MAX_AGE = 86400 * 365
@@ -337,10 +339,13 @@ class Portal5(PostprocessingMixin, DirectiveMixin, JWTMixin, PreferenceMixin, Fe
         settings = {**self.make_client_prefs(), 'passthru': self._passthru_conf}
 
         settings['endpoints'] = {
+            '/': 'passthru',
             self.ENDPOINT_INIT: 'passthru',
             self.ENDPOINT_SETTINGS: 'restricted',
             self.ENDPOINT_UNINSTALL: 'passthru',
             self.ENDPOINT_RESET: 'passthru',
+            self.ENDPOINT_DEFLECT: 'passthru',
+            self.ENDPOINT_MULTI_CHOICES: 'passthru',
             self.ENDPOINT_DISAMBIGUATE: 'disambiguate',
         }
 

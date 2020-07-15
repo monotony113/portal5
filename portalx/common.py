@@ -23,7 +23,6 @@ import requests
 from flask import Request, Response, abort, stream_with_context
 from flask_babel import _
 from werkzeug.datastructures import Headers, MultiDict
-from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers.response import Response as BaseResponse
 
 from . import exceptions
@@ -97,8 +96,8 @@ def pipe_request(outbound: requests.PreparedRequest) -> Tuple[requests.Response,
 
     # except Exception as e:
     #     raise e
-    except HTTPException as e:
-        raise e
+    # except HTTPException as e:
+    #     raise e
     except requests.HTTPError as e:
         return abort(int(e.response.status_code), _('Got HTTP %(code)d while accessing <code>%(url)s</code>', code=e.response.status_code, url=outbound.url))
     except requests.exceptions.TooManyRedirects:

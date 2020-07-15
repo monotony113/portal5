@@ -265,7 +265,7 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin, r
             if "'self'" in options:
                 options.add(request_origin)
 
-        broken_csp = '; '.join([' '.join([k, *v]) for k, v in policies.items()])
+        broken_csp = '; '.join([' '.join([k, *filter(None, v)]) for k, v in policies.items()])
         response.headers[header] = broken_csp
 
 
@@ -276,10 +276,15 @@ def add_clear_site_data_header(remote: requests.Response, response: Response, *,
         response.headers.add('Clear-Site-Data', '"cookies"')
 
 
-def clear_site_data(view_func):
-    @wraps(view_func)
-    def wrapper(*args, **kwargs):
-        out = common.wrap_response(view_func(*args, **kwargs))
-        out.headers['Clear-Site-Data'] = '"cache", "cookies", "storage"'
-        return out
+def clear_site_data(*types):
+    if not types:
+        types = ('cache', 'cookies', 'storage')
+
+    def wrapper(view_func):
+        @wraps(view_func)
+        def wrapper(*args, **kwargs):
+            out = common.wrap_response(view_func(*args, **kwargs))
+            out.headers['Clear-Site-Data'] = ', '.join([f'"{t}"' for t in types])
+            return out
+        return wrapper
     return wrapper

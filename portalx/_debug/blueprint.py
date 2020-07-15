@@ -64,3 +64,16 @@ def test_redirect_2():
         'cookies': {**request.cookies},
         'form': {**request.form},
     })
+
+
+@_debug.route('/static.html')
+def html():
+    return Response('<html><head><link rel="stylesheet" href="/static.css"></head><body>Lorem ipsum</body></html>')
+
+
+@_debug.route('/static.css')
+def css():
+    res = Response('*{font-family:Courier}', mimetype='text/css')
+    res.headers['Cache-Control'] = 'public, max-age=31536000'
+    res.add_etag()
+    return res
