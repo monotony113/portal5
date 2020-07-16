@@ -95,14 +95,14 @@ def revalidate_if_outdated(view_func):
     def append(*args, **kwargs):
         p5 = get_p5()
         if not p5.up_to_date:
-            p5.add_directive('revalidate-on-next-request')
+            p5.set_signal('revalidate-on-next-request')
         return view_func(*args, **kwargs)
     return append
 
 
 @portal5.route('/')
 @portal5.route('/index.html')
-@config.client_side_handler('passthrough')
+# @config.client_side_handler('passthrough')
 @security.access_control_allow_origin('*')
 def home():
     return render_template(f'{APPNAME}/index.html')

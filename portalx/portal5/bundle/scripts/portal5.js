@@ -90,7 +90,7 @@ class Portal5 {
         headers[Portal5.headerName] = JSON.stringify(p5)
     }
     static parseDirectives(response) {
-        return JSON.parse(response.headers.get('X-Portal5-Directive') || '{}')
+        return JSON.parse(response.headers.get('X-Portal5-Signal') || '{}')
     }
     static async rewriteResponse(response, base) {
         let contentType = response.headers.get('Content-Type')
@@ -101,7 +101,7 @@ class Portal5 {
                 if (text.length) {
                     let document = parse5.parse(text)
                     let observer = Injector.makeElementNode('script', {
-                        src: `/~/scripts/observer.js?args=${btoa(JSON.stringify({base: base}))}`,
+                        src: `/~/scripts/responsive/injection.js?args=${btoa(JSON.stringify({base: base}))}`,
                         referrerpolicy: 'no-referrer',
                     })
                     let head = Injector.dfsFirstInTree(document, (node) => node.tagName === 'head', 'childNodes')

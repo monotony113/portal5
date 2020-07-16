@@ -122,7 +122,7 @@ function withDefinedHandlers(event) {
     /** @type {Request} */
     let request = event.request
     let url = new URL(request.url)
-    let endpoint = self.settings.endpoints[url.pathname]
+    let endpoint = self.urlRules.endpoints[url.pathname]
     if (!endpoint) return
 
     let { handler, test } = endpoint
@@ -147,7 +147,7 @@ function noRewrite(event) {
 }
 
 function shouldPassthru(url) {
-    return url.hostname in self.settings.passthrough.domains || url.href in self.settings.passthrough.urls
+    return url.hostname in self.urlRules.passthrough.domains || url.href in self.urlRules.passthrough.urls
 }
 
 function makeRedirect(url) {
@@ -211,7 +211,7 @@ async function filterMultipleChoices(destinations) {
     if (j === 1) return destinations
     if (self.settings.prefs.local['disambiguation_test_url']) {
         try {
-            destinations = (
+            let filtered = (
                 await Promise.all(
                     destinations.map(async (t) => [
                         t,
@@ -222,8 +222,9 @@ async function filterMultipleChoices(destinations) {
                     ])
                 )
             )
-                .filter((p) => p[1].status >= 200 && p[1].status < 300)
+                .filter((p) => (p[1].status >= 200 && p[1].status < 300) || p[1].status === 405)
                 .map((p) => p[0])
+            if (filtered.length) destinations = filtered
         } catch (e) {
             ;() => {}
         }
@@ -277,6 +278,7 @@ async function interceptFetch(event) {
     if (!dest) {
         dest = new URL(request.url)
     }
+    dest.pathname = Utils.trimPrefix(dest.pathname, '/' + dest.origin)
 
     if (shouldPassthru(dest)) {
         return fetch(request.clone())
@@ -297,6 +299,7 @@ async function interceptFetch(event) {
     return doFetch(outbound, {
         injection_dom_hijack: {
             run: Portal5.rewriteResponse,
+            signal: 'hijack',
             args: [dest],
         },
     })
@@ -345,18 +348,23 @@ async function doFetch(request, useFeatures = null) {
     let response = await fetch(request)
 
     let directives = Portal5.parseDirectives(response)
-    for (let k in directives) self.directives[k] = directives[k]
 
     let prefs = self.settings.prefs.local
     if (useFeatures != null) {
         let featureNames = Object.keys(useFeatures)
         for (let i = 0; i < featureNames.length; i++) {
             let name = featureNames[i]
-            if (!prefs[name]) continue
             let options = useFeatures[name]
+            if (!prefs[name]) continue
+            if (options.signal) {
+                if (!(options.signal in directives)) continue
+                delete directives[options.signal]
+            }
             response = await options.run(response, ...options.args)
         }
     }
+
+    for (let k in directives) self.directives[k] = directives[k]
     return response
 }
 
@@ -370,6 +378,8 @@ self.destinationRequiresRedirect = {
 }
 
 self.settings = JSON.parse('{{ settings|default(dict())|tojson }}')
+self.urlRules = JSON.parse('{{ url_rules|default(dict())|tojson }}')
+
 self.server = self.settings.origin
 self.directives = {}
 

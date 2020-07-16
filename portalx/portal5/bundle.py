@@ -102,9 +102,14 @@ def service_worker():
     else:
         return abort(401)
 
-    worker_settings = p5.make_worker_settings(None, g.server_origin)
+    settings, rules = p5.make_worker_settings(None, g.server_origin)
     response = Response(
-        render_template('scripts/service-worker.js', settings=worker_settings, requires_bundle=p5.requires_bundle),
+        render_template(
+            'scripts/service-worker.js',
+            settings=settings,
+            url_rules=rules,
+            requires_bundle=p5.requires_bundle,
+        ),
         headers={'Service-Worker-Allowed': '/'},
     )
     p5.clear_tokens()
@@ -117,7 +122,7 @@ def preferences():
     return render_template('scripts/responsive/preferences.js', **get_p5().make_dependency_dicts())
 
 
-@p5bundle.route('/scripts/observer.js')
+@p5bundle.route('/scripts/responsive/injection.js')
 @config.client_side_handler('passthrough', mode=('no-cors',), referrer=None)
 @mimetype('js')
 def dispatch_observer():
@@ -125,7 +130,20 @@ def dispatch_observer():
         args = json.loads(base64.b64decode(request.args.get('args')).decode())
     except (TypeError, ValueError, json.JSONDecodeError):
         return abort(400)
-    return render_template('scripts/observer.js', **args)
+    return render_template('scripts/responsive/injection.js', **args)
+
+
+@p5bundle.route('/static/templates/injection-manager.html')
+@config.client_side_handler('passthrough', mode=('same-origin',), referrer=None)
+def injection_manager_template():
+    return p5bundle.send_static_file('templates/injection-manager.html')
+
+
+@p5bundle.route('/static/styles/injection-manager.css')
+@config.client_side_handler('passthrough', mode=('no-cors',), referrer=None)
+@mimetype('css')
+def injection_manager_styles():
+    return p5bundle.send_static_file('styles/injection-manager.css')
 
 
 @p5bundle.route('/scripts/<path:file>')

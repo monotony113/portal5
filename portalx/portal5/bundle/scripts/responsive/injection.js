@@ -1,4 +1,4 @@
-// observer.js
+// injection.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
 // /* {% if retain_comments %} */
 // This program is free software: you can redistribute it and/or modify
@@ -59,6 +59,7 @@
             if (!value) value = element.getAttribute(attrName)
             if (!value) return
             if (value === element.dataset[attrNameCurrentValue]) return
+            if (value.charAt(0) == '#') return
 
             let url = new URL(value, this.BASE)
             if (!(url.protocol in this.ACCEPT_PROTOCOL)) return
@@ -90,9 +91,9 @@
     },
     init() {
         let attrs = this.observatory.TARGET_ATTRS
-        let dataAttrs = attrs.map((s) => `data-${s}`)
-        attrs = attrs.concat(dataAttrs)
-        this.observatory.TARGET_ATTRS = attrs
+        // let dataAttrs = attrs.map((s) => `data-${s}`)
+        // attrs = attrs.concat(dataAttrs)
+        // this.observatory.TARGET_ATTRS = attrs
 
         let capitalized = {}
         for (let i = attrs.length - 1; i >= 0; i--) {
@@ -106,7 +107,13 @@
     },
     start() {
         this.init()
-        window.history.replaceState('', document.title, '/')
+        window.history.pushState(
+            '',
+            document.title,
+            window.location.pathname.replace(this.observatory.BASE.origin + '/', '') +
+                window.location.search +
+                window.location.hash
+        )
         let observer = new MutationObserver(this.observatory.mutationCallback.bind(this.observatory))
         observer.observe(document.documentElement, {
             childList: true,

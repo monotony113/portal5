@@ -228,14 +228,19 @@ def conceal_origin(find, replace, url: SplitResult, **multidicts: MultiDict) -> 
     return {'url': url, **multidicts}
 
 
-def enforce_cors(remote: requests.Response, response: Response, *, request_origin, server_origin, **kwargs) -> None:
+def enforce_cors(remote: requests.Response, response: Response, *, request_mode, request_origin, server_origin, **kwargs) -> None:
+    remote_origin = urlsplit(remote.url)
+    remote_origin = f'{remote_origin.scheme}://{remote_origin.netloc}'
     allow_origin = remote.headers.get('Access-Control-Allow-Origin', None)
-    if not allow_origin or allow_origin == '*':
+    if allow_origin == '*' or not allow_origin and request_mode != 'cors':
         return
 
-    if allow_origin != request_origin:
+    if allow_origin and allow_origin != request_origin:
         response.headers.pop('Access-Control-Allow-Origin', None)
         return
+
+    if not allow_origin and request_mode == 'cors' and request_origin != remote_origin:
+        return abort(403)
 
     response.headers['Access-Control-Allow-Origin'] = server_origin
 
@@ -258,6 +263,8 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin, r
         policies = {p[0]: set(p[1:]) for p in policies if p[0] not in adverse_directives}
 
         for directive, options in policies.items():
+            if not directive:
+                continue
             if directive in non_source_directives:
                 continue
             if "'strict-dynamic'" in options:

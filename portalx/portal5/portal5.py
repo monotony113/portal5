@@ -142,6 +142,9 @@ class FeaturesMixin:
         if 'security_clear_cookies_on_navigate' in self.prefs:
             security.add_clear_site_data_header(remote, response, **kwargs)
 
+        if 'injection_dom_hijack' in self.prefs:
+            self.set_signal('hijack')
+
 
 class JWTMixin:
     __slots__ = ()
@@ -207,14 +210,14 @@ class WorkerSignalMixin:
 
     def __init__(self):
         self.signals = self.signals or {}
-        self.directives = set()
-        self.register_action(Portal5.set_directive_header)
+        self.feedback = set()
+        self.register_action(Portal5.set_signal_header)
 
-    def add_directive(self, directive):
-        self.directives.add(directive)
+    def set_signal(self, directive):
+        self.feedback.add(directive)
 
-    def set_directive_header(self, response):
-        response.headers['X-Portal5-Directive'] = json.dumps({k: 1 for k in self.directives})
+    def set_signal_header(self, response):
+        response.headers['X-Portal5-Signal'] = json.dumps({k: 1 for k in self.feedback})
 
 
 FEATURES_KEYS = {
@@ -229,7 +232,7 @@ FEATURES_KEYS = {
 }
 FEATURES_VALUES = {v: k for k, v in FEATURES_KEYS.items()}
 
-FEATURES_DEFAULTS = {0, 1, 2, 3, 4}
+FEATURES_DEFAULTS = {0, 1, 2, 3, 4, 6}
 
 FEATURES_DEPENDENCIES = {
     4: {1},
@@ -252,7 +255,7 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
     __slots__ = (
         'id', 'version', 'prefs',
         'mode', 'referrer', 'origin',
-        'directives', 'signals',
+        'signals', 'feedback',
         'tokens', 'after_request',
     )
 
@@ -340,11 +343,13 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
             'version': self.VERSION,
             'signals': self.signals,
             'origin': server,
+        }
+        rules = {
             'endpoints': config.endpoint_handlers,
             'passthrough': config.passthrough_rules,
         }
 
-        return settings
+        return settings, rules
 
 
 FEATURES_TEXTS = {
