@@ -26,6 +26,34 @@ label {
     width: 100%;
     flex-direction: column;
 
+    &:target {
+        animation: attention 2.5s cubic-bezier(0, 0, 1, 0.15) 0s 1 normal none;
+
+        @keyframes attention {
+            0% {
+                background-color: unset;
+                box-shadow: unset;
+            }
+
+            8% {
+                background-color: #ffd932e3;
+                box-shadow: 0 0 5px 5px #ffd932e3;
+                color: #1a1a1a;
+            }
+
+            45% {
+                background-color: #ffd932e3;
+                box-shadow: 0 0 5px 5px #ffd932e3;
+                color: #1a1a1a;
+            }
+
+            100% {
+                background-color: unset;
+                box-shadow: unset;
+            }
+        }
+    }
+
     .option {
         display: flex;
         width: 100%;

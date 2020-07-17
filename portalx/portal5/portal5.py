@@ -136,14 +136,15 @@ class FeaturesMixin:
         if 'security_enforce_cors' in self.prefs:
             security.enforce_cors(remote, response, **kwargs)
 
-        if 'security_break_csp' in self.prefs:
-            security.break_csp(remote, response, **kwargs)
-
         if 'security_clear_cookies_on_navigate' in self.prefs:
             security.add_clear_site_data_header(remote, response, **kwargs)
 
-        if 'injection_dom_hijack' in self.prefs:
-            self.set_signal('hijack')
+        if 'security_break_csp' in self.prefs:
+            csp = security.break_csp(remote, response, **kwargs)
+
+            if 'injection_dom_hijack' in self.prefs:
+                if "'strict-dynamic'" not in csp.get('script-src', set()) | csp.get('script-src-elem', set()):
+                    self.set_signal('hijack')
 
 
 class JWTMixin:

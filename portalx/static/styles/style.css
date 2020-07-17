@@ -215,6 +215,13 @@ li {
 
 li {
     padding: 0 0 0.5em;
+    text-indent: -5px;
+}
+
+li::before {
+    content: '-';
+    position: relative;
+    right: 5px;
 }
 
 blockquote p {
@@ -239,9 +246,9 @@ li blockquote {
 }
 
 ul {
-    list-style: square outside
-        url('data:image/gif;base64,R0lGODdhBQAKAJEAAAAAAP///wAAAAAAACH5BAkAAAIALAAAAAAFAAoAAAIIlI+ZwawPUQEAOw==');
+    list-style: none;
 }
+
 ul ol {
     list-style: decimal;
 }

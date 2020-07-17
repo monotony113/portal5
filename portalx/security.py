@@ -245,7 +245,7 @@ def enforce_cors(remote: requests.Response, response: Response, *, request_mode,
     response.headers['Access-Control-Allow-Origin'] = server_origin
 
 
-def break_csp(remote: requests.Response, response: Response, *, server_origin, request_origin, **kwargs) -> None:
+def break_csp(remote: requests.Response, response: Response, *, server_origin, request_origin, **kwargs) -> dict:
     non_source_directives = {
         'plugin-types', 'sandbox',
         'block-all-mixed-content', 'referrer',
@@ -276,6 +276,8 @@ def break_csp(remote: requests.Response, response: Response, *, server_origin, r
 
         broken_csp = '; '.join([' '.join([k, *filter(None, v)]) for k, v in policies.items()])
         response.headers[header] = broken_csp
+        return policies
+    return {}
 
 
 def add_clear_site_data_header(remote: requests.Response, response: Response, *, request_mode, request_origin, **kwargs):

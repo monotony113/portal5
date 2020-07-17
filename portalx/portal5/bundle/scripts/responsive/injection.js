@@ -18,82 +18,216 @@
 /* eslint-env browser */
 
 ;({
-    observatory: {
-        PREFIX: '{{ g.server_origin }}/',
-        BASE: new URL('{{ base }}'),
-        TARGET_ATTRS: ['href', 'src', 'action'],
-        TARGET_ATTRS_CAP: undefined,
-        ACCEPT_PROTOCOL: { 'http:': true, 'https:': true },
+    PREFIX: '{{ g.server_origin }}/',
+    BASE: new URL('{{ base }}'),
+    TARGET_ATTRS: ['href', 'src', 'action', 'data', 'formaction'],
+    TARGET_ATTRS_CAP: undefined,
+    ACCEPT_PROTOCOL: { 'http:': true, 'https:': true },
+    observer: undefined,
+    stat: {
+        updateCount: 0,
+    },
+    manager: {
+        /** @type {HTMLElement} */
+        element: undefined,
+        console: undefined,
+        observatory: undefined,
+        isHidden: true,
         /**
          *
-         * @param {Node[]} nodeList
+         * @param {HTMLBodyElement} body
          */
-        processNodes(nodeList) {
-            for (let i = nodeList.length - 1; i >= 0; i--) {
-                let node = nodeList[i]
-                if (!(node.nodeType === Node.ELEMENT_NODE)) continue
-                /** @type {Element} */
-                let element = node
-                for (let j = this.TARGET_ATTRS.length - 1; j >= 0; j--) {
-                    let attr = this.TARGET_ATTRS[j]
-                    if (element.hasAttribute(attr))
-                        try {
-                            this.rewriteURL(element, attr, element.getAttribute(attr))
-                        } catch (e) {
-                            ;() => {}
-                        }
-                }
-            }
-        },
-        /**
-         *
-         * @param {Element} element
-         * @param {String} attrName
-         * @param {String} value
-         */
-        rewriteURL(element, attrName, value = undefined) {
-            let attrNameUpper = this.TARGET_ATTRS_CAP[attrName]
-            let attrNameOriginalValue = 'p5' + attrNameUpper + 'Original'
-            let attrNameCurrentValue = 'p5' + attrNameUpper + 'Current'
+        async attach(body) {
+            let template = document.createElement('template')
+            if (!('content' in template)) return
+            let templateString = await fetch('/~/static/templates/injection-manager.html', {
+                mode: 'same-origin',
+                referrer: '',
+            }).then((r) => r.text())
+            template.innerHTML = templateString
 
-            if (!value) value = element.getAttribute(attrName)
-            if (!value) return
-            if (value === element.dataset[attrNameCurrentValue]) return
-            if (value.charAt(0) == '#') return
+            let manager = this.initInterface(template.content)
+            let isolated = document.createElement('div')
+            let shadowRoot = isolated.attachShadow({ mode: 'closed' })
+            shadowRoot.append(manager)
+            this.element = manager
+            body.prepend(isolated)
+        },
+        initInterface(manager) {
+            manager.getElementById('p5-option-more-info').addEventListener('click', (event) => {
+                let containers = this.element.getElementsByClassName('p5-container-optional')
+                for (let i = containers.length - 1; i >= 0; i--)
+                    this.isHidden = containers[i].classList.toggle('p5-hidden')
+                event.currentTarget.textContent = this.isHidden ? 'more info' : 'hide details'
+                if (!this.console) this.initConsole()
+            })
+            manager.getElementById('p5-option-close').addEventListener('click', this.toggleVisible.bind(this))
 
-            let url = new URL(value, this.BASE)
-            if (!(url.protocol in this.ACCEPT_PROTOCOL)) return
-            let resolved = '/' + this.trimPrefix(url.href, this.PREFIX)
-            element.dataset[attrNameOriginalValue] = value
-            element.dataset[attrNameCurrentValue] = resolved
-            element.setAttribute(attrName, resolved)
-        },
-        mutationCallback(mutations) {
-            for (let mutation of mutations) {
-                switch (mutation.type) {
-                    case 'childList':
-                        this.processNodes(mutation.addedNodes)
-                        break
-                    case 'attributes':
-                        if (mutation.target.nodeType === Node.ELEMENT_NODE) {
-                            this.rewriteURL(mutation.target, mutation.attributeName)
-                        }
-                        break
-                    default:
-                        break
-                }
+            let doNotShow = manager.getElementById('p5-option-disable-warning')
+            let doNotShowLabel = manager.getElementById('p5-option-disable-warning-label')
+            doNotShow.addEventListener('change', this.setCookie)
+            doNotShowLabel.addEventListener('click', () => {
+                let checkbox = this.element.querySelector('#p5-option-disable-warning')
+                checkbox.checked = !checkbox.checked
+                checkbox.dispatchEvent(new Event('change'))
+            })
+            let element = manager.getElementById('p5-injection-manager')
+            if (document.cookie.split('; ').includes('p5popup=-1')) {
+                element.classList.add('p5-hidden')
+                doNotShow.checked = true
             }
+
+            return element
         },
-        trimPrefix(str, prefix) {
-            if (str.startsWith(prefix)) return this.trimPrefix(str.slice(prefix.length), prefix)
-            return str
+        initConsole() {
+            let _ = document.createTextNode.bind(document)
+            let __ = document.createElement.bind(document)
+            this.console = this.element.querySelector('#p5-console').getElementsByTagName('code')[0]
+            /** @type {HTMLElement} */
+            let origin = this.makeConsoleDataField(this.observatory.BASE.origin)
+            let attributes = this.makeConsoleDataField(this.observatory.TARGET_ATTRS.join(' '))
+            let count = this.makeConsoleDataField()
+            let refresh = this.makeActionButton('refresh', () => {
+                window.history.pushState('', document.title, '/' + this.observatory.BASE.href)
+                window.location.reload()
+            })
+            let start = this.makeActionButton('start', () => this.observatory.startObserving())
+            let stop = this.makeActionButton('stop', () => this.observatory.observer.disconnect())
+            let forceUpdate = this.makeActionButton('force_update', () => this.observatory.forceUpdateAnchors())
+            this.console.append(
+                _('origin '),
+                origin,
+                __('br'),
+                _('update attributes '),
+                attributes,
+                __('br'),
+                count,
+                _(' urls rewritten'),
+                __('br'),
+                _(' actions '),
+                refresh,
+                _(' '),
+                start,
+                _(' '),
+                stop,
+                _(' '),
+                forceUpdate
+            )
+            setInterval(() => {
+                if (!this.isHidden) count.innerText = this.observatory.stat.updateCount
+            }, 1000)
+        },
+        makeConsoleDataField(text) {
+            let field = document.createElement('span')
+            field.classList.add('p5-console-data')
+            if (text) field.append(document.createTextNode(text.trim()))
+            return field
+        },
+        makeActionButton(text, action) {
+            let button = this.makeConsoleDataField()
+            let buttonAnchor = document.createElement('a')
+            buttonAnchor.href = 'javascript:void(0)'
+            buttonAnchor.append(document.createTextNode(text))
+            buttonAnchor.addEventListener('click', action)
+            button.append(buttonAnchor)
+            return button
+        },
+        setCookie(event) {
+            let checkbox = event.currentTarget
+            if (checkbox.checked) document.cookie = 'p5popup=-1;path=/;max-age=31536000'
+            else document.cookie = 'p5popup=1;path=/;max-age=0'
+        },
+        toggleVisible() {
+            return this.element.classList.toggle('p5-hidden')
         },
     },
+    /**
+     *
+     * @param {Node[]} nodeList
+     */
+    processNodes(nodeList) {
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            let node = nodeList[i]
+            if (!(node.nodeType === Node.ELEMENT_NODE)) continue
+            /** @type {Element} */
+            let element = node
+            if (element.tagName == 'BODY') this.manager.attach(element)
+            for (let j = this.TARGET_ATTRS.length - 1; j >= 0; j--) {
+                let attr = this.TARGET_ATTRS[j]
+                if (element.hasAttribute(attr))
+                    try {
+                        this.rewriteURL(element, attr, element.getAttribute(attr))
+                    } catch (e) {
+                        ;() => {}
+                    }
+            }
+        }
+    },
+    /**
+     *
+     * @param {Element} element
+     * @param {String} attrName
+     * @param {String} value
+     */
+    rewriteURL(element, attrName, value = undefined) {
+        if (element.hasAttribute('data-p5-ignore')) return
+        if (!value) value = element.getAttribute(attrName)
+        if (!value) return
+
+        let attrNameUpper = this.TARGET_ATTRS_CAP[attrName]
+        let attrNameOriginalValue = 'p5' + attrNameUpper + 'Original'
+        let attrNameCurrentValue = 'p5' + attrNameUpper + 'Current'
+
+        if (value === element.dataset[attrNameCurrentValue]) return
+        if (value.charAt(0) == '#') return
+
+        let url = new URL(value, this.BASE)
+        if (!(url.protocol in this.ACCEPT_PROTOCOL)) return
+        let resolved = '/' + this.trimPrefix(url.href, this.PREFIX)
+        element.dataset[attrNameOriginalValue] = value
+        element.dataset[attrNameCurrentValue] = resolved
+        element.setAttribute(attrName, resolved)
+        this.stat.updateCount++
+    },
+    mutationCallback(mutations) {
+        for (let mutation of mutations) {
+            switch (mutation.type) {
+                case 'childList':
+                    this.processNodes(mutation.addedNodes)
+                    break
+                case 'attributes':
+                    if (mutation.target.nodeType === Node.ELEMENT_NODE) {
+                        this.rewriteURL(mutation.target, mutation.attributeName)
+                    }
+                    break
+                default:
+                    break
+            }
+        }
+    },
+    trimPrefix(str, prefix) {
+        if (str.startsWith(prefix)) return this.trimPrefix(str.slice(prefix.length), prefix)
+        return str
+    },
+    patch(func, before, after, thisArg) {
+        if (!(typeof before === 'function')) before = () => {}
+        if (!(typeof after === 'function')) after = () => {}
+        return function () {
+            before(...arguments)
+            let result = func.apply(thisArg, [...arguments])
+            after(result, ...arguments)
+            return result
+        }
+    },
     init() {
-        let attrs = this.observatory.TARGET_ATTRS
+        let updateBase = () => (this.BASE = new URL(window.location.pathname + window.location.search, this.BASE))
+        window.history.pushState = this.patch(window.history.pushState, undefined, updateBase, window.history)
+        window.history.replaceState = this.patch(window.history.replaceState, undefined, updateBase, window.history)
+
+        let attrs = this.TARGET_ATTRS
         // let dataAttrs = attrs.map((s) => `data-${s}`)
         // attrs = attrs.concat(dataAttrs)
-        // this.observatory.TARGET_ATTRS = attrs
+        // this.TARGET_ATTRS = attrs
 
         let capitalized = {}
         for (let i = attrs.length - 1; i >= 0; i--) {
@@ -103,31 +237,50 @@
                 .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
                 .join('')
         }
-        this.observatory.TARGET_ATTRS_CAP = capitalized
+        this.TARGET_ATTRS_CAP = capitalized
+
+        this.manager.observatory = this
+        window.p5InjectionManager = (operation) => {
+            switch (operation) {
+                case 'retrieve':
+                    return this
+                case 'stopListening':
+                    this.observer.disconnect()
+                    break
+                case 'forceUpdate':
+                    this.forceUpdateAnchors()
+                    break
+                case 'toggle':
+                default:
+                    this.manager.toggleVisible()
+                    break
+            }
+        }
     },
     start() {
         this.init()
-        window.history.pushState(
-            '',
-            document.title,
-            window.location.pathname.replace(this.observatory.BASE.origin + '/', '') +
-                window.location.search +
-                window.location.hash
-        )
-        let observer = new MutationObserver(this.observatory.mutationCallback.bind(this.observatory))
-        observer.observe(document.documentElement, {
+
+        fetch(this.BASE, { method: 'HEAD' })
+        let normalizedPath = window.location.pathname.replace(this.BASE.origin + '/', '').replace(/^\/+/, '/')
+        window.history.pushState('', document.title, normalizedPath + window.location.search + window.location.hash)
+
+        this.observer = new MutationObserver(this.mutationCallback.bind(this))
+        this.startObserving()
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(this.forceUpdateAnchors.bind(this), 0)
+            setInterval(this.forceUpdateAnchors.bind(this), 30000)
+        })
+    },
+    startObserving() {
+        this.observer.observe(document.documentElement, {
             childList: true,
             attributes: true,
             subtree: true,
-            attributeFilter: this.observatory.TARGET_ATTRS,
+            attributeFilter: this.TARGET_ATTRS,
         })
-        let updateAnchors = () => this.observatory.processNodes(document.getElementsByTagName('a'))
-        window.addEventListener('load', () => {
-            setTimeout(updateAnchors, 1000)
-            setInterval(updateAnchors, 30000)
-        })
-        window.addEventListener('popstate', () => {
-            setTimeout(updateAnchors, 1000)
-        })
+    },
+    forceUpdateAnchors() {
+        this.processNodes(document.getElementsByTagName('a'))
     },
 }.start())

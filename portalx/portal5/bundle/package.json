@@ -22,6 +22,7 @@
     },
     "scripts": {
         "bundle": "browserify -s parse5 bundle.js | terser --compress --mangle > static/scripts/bundle.min.js",
+        "build": "npm run bundle",
         "compile-css": "sass styles/:static/styles -s compressed"
     }
 }

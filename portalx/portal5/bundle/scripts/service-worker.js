@@ -161,9 +161,7 @@ async function getLocations(event, savedClients) {
     else if ('matchAll' in clients)
         windows = windows.concat(
             windows,
-            (await clients.matchAll({ type: 'window' })).filter(
-                (w) => w.url === event.request.referrer || w.visibilityState === 'visible' || w.focused
-            )
+            (await clients.matchAll({ type: 'window' })).filter((w) => w.url === event.request.referrer || w.focused)
         )
 
     var locations = []
