@@ -14,10 +14,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import subprocess
+from pathlib import Path
+
+import click
 from flask import Flask, request
 from flask_babel import Babel
 
 babel = Babel()
+TRANSLATIONS = f'{Path(__file__).parent}/translations'
 
 
 def setup_languages(app: Flask):
@@ -27,9 +32,32 @@ def setup_languages(app: Flask):
     def get_locale():
         lang = (
             request.args.get('lang', None)
+            or request.cookies.get('_portalxlang', None)
             or request.accept_languages.best_match(app.config['LANGUAGES'])
         )
-        if lang:
-            return lang.replace('-', '_')
-        else:
-            return None
+        return lang and lang.replace('-', '_')
+
+    app.jinja_env.add_extension('jinja2.ext.i18n')
+    app.jinja_env.policies['ext.i18n.trimmed'] = True
+
+    @app.cli.group()
+    def i18n():
+        pass
+
+    def extract():
+        subprocess.run(['pybabel', 'extract', '-F', 'babel.ini', '-o', 'strings.pot', '.'])
+
+    @i18n.command()
+    @click.argument('lang')
+    def init(lang):
+        extract()
+        subprocess.run(['pybabel', 'init', '-i', 'strings.pot', '-d', TRANSLATIONS, '-l', lang])
+
+    @i18n.command()
+    def update():
+        extract()
+        subprocess.run(['pybabel', 'update', '-i', 'strings.pot', '-d', TRANSLATIONS])
+
+    @i18n.command()
+    def compile():
+        subprocess.run(['pybabel', 'compile', '-d', TRANSLATIONS])

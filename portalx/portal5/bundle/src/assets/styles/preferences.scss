@@ -1,3 +1,7 @@
+$marker: #ffd932ee;
+$dark: #1a1a1a;
+$teal-dark: #1e3b53c9;
+
 button {
     border: none;
     margin: 0;
@@ -36,14 +40,14 @@ label {
             }
 
             8% {
-                background-color: #ffd932e3;
-                box-shadow: 0 0 5px 5px #ffd932e3;
+                background-color: $marker;
+                box-shadow: 0 0 5px 5px $marker;
                 color: #1a1a1a;
             }
 
             45% {
-                background-color: #ffd932e3;
-                box-shadow: 0 0 5px 5px #ffd932e3;
+                background-color: $marker;
+                box-shadow: 0 0 5px 5px $marker;
                 color: #1a1a1a;
             }
 
@@ -60,12 +64,12 @@ label {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        margin: 2pt 0 2pt 0;
+        margin: .17rem 0 .17rem 0;
     }
 
     .option-bullet {
         display: inline-block;
-        margin: 0 5pt auto 0;
+        margin: 0 .4rem auto 0;
     }
 
     .option-description {
@@ -79,7 +83,7 @@ label {
     .option-name {
         margin: 0;
         display: flex;
-        margin: 0 5pt 0;
+        margin: 0 .4rem 0;
     }
 
     .multi-option-confirm {
@@ -92,7 +96,7 @@ label {
         }
 
         h6 {
-            margin: 6pt 0 6pt 0;
+            margin: .5rem 0 .5rem 0;
             flex-basis: 100%;
             text-align: right;
         }
@@ -107,7 +111,7 @@ label {
     button {
         width: initial;
         height: 2rem;
-        font-size: 16pt;
+        font-size: 1.3rem;
     }
 
     p {
@@ -147,8 +151,8 @@ label {
 }
 
 .highlighted {
-    background-color: #1e3b53c9;
-    outline: #1e3b53c9 solid 5pt;
+    background-color: $teal-dark;
+    outline: $teal-dark solid .4rem;
 }
 
 .bold {

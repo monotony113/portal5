@@ -1,48 +1,48 @@
 {% extends 'portal5/components/console.html' %}
 
-{% set title = 'portal5:init' %}
+{% set title = 'init' %}
 
 {% block styles %}
 {{ super() }}
-<link rel="stylesheet" href="/~/static/styles/init.css">
+<link rel="stylesheet" href="/~/static/assets/styles/init.css">
 {% endblock %}
 
 {% block scripts %}
-<script async src="/~/scripts/controls/init.js"></script>
+<script async src="/~/client/init.js"></script>
 {% endblock %}
 
 {% block static_messages %}
 <div id="worker-failed">
-    <h3><strong>{{_('Failed to initialize Service Worker')}}</strong></h3>
+    <h3><strong>Failed to initialize Service Worker</strong></h3>
     <p>
-        <code>portal5</code> {{_('relies on a web technology called')}}
+        <code>portal5</code> relies on a web technology called
         <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-        {{_('to work, which failed to initialize. The reason, if any, is displayed below.')}}
+        to work, which failed to initialize. The reason, if any, is displayed below.
     </p>
-    <p>{{_('You may:')}}</p>
+    <p>You may:</p>
     <ul>
-        <li>{{ _('Try clearing cookies and data for this website.') }}</li>
-        <li>{{ _('Try visiting this page later.') }}</li>
+        <li>Try clearing cookies and data for this website.</li>
+        <li>Try visiting this page later.</li>
         {{ use_portal3 }}
     </ul>
 </div>
 
 <div id="worker-unavailable">
-    <h3><strong>{{_('Service Worker API unavailable')}}</strong></h3>
+    <h3><strong>Service Worker API unavailable</strong></h3>
     <p>
-        <code>portal5</code> {{_('relies on a web technology called')}}
+        <code>portal5</code> relies on a web technology called
         <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-        {{_('to work, which is not supported by your browser.')}} 
+        to work, which is not supported by your browser. 
     </p>
     <ul>
-        <li><em>{{_('(Note: Firefox disables Service Workers in Private Browsing mode)')}}</em></li>
+        <li><em>(Note: Firefox disables Service Workers in Private Browsing mode)</em></li>
         {% if 'MicroMessenger' in request.user_agent.string %}
-        <li><em>{{_('(If you are viewing this in WeChat, please open this page in your browser)')}}</em></li>
+        <li><em>(If you are viewing this in WeChat, please open this page in your browser)</em></li>
         {% endif %}
     </ul>
-    <p>{{_('You may:')}}</p>
+    <p>You may:</p>
     <ul>
-        <li>{{_('Switch to a another browser.')}}</li>
+        <li>Switch to a another browser.</li>
         {{ use_portal3 }}
     </ul>
 </div>

@@ -46,8 +46,6 @@ def setup():
     Portal5.VERSION = conf['worker_codename']
     Portal5._fernet = Fernet(conf['secret_key'].encode())
 
-    config.add_client_handler('/~disambiguate', 'disambiguate', virtual=True)
-
     config.collect_passthrough_urls()
     config.resolve_client_handlers(APPNAME)
 
@@ -302,3 +300,4 @@ def uninstall():
 
 
 portal5.after_request(Portal5.postprocess(get_p5))
+config.add_client_handler('/~disambiguate', 'disambiguate')

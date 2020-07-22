@@ -1,0 +1,85 @@
+@use 'colors';
+
+.color-100-white-bg {
+    background-color: white;
+}
+
+.color-black-bg {
+    background-color: colors.$black;
+}
+
+.color-gray-bg {
+    background-color: colors.$gray;
+}
+
+.color-white-bg {
+    background-color: colors.$white;
+}
+
+.color-blue-bg {
+    background-color: colors.$blue;
+}
+
+.color-cyan-bg {
+    background-color: colors.$cyan;
+}
+
+.color-green-bg {
+    background-color: colors.$green;
+}
+
+.color-magenta-bg {
+    background-color: colors.$magenta;
+}
+
+.color-red-bg {
+    background-color: colors.$red;
+}
+
+.color-yellow-bg {
+    background-color: colors.$yellow;
+}
+
+.color-100-white-fg {
+    color: white;
+}
+
+.color-black-fg {
+    color: colors.$black;
+}
+
+.color-gray-fg {
+    color: colors.$gray;
+}
+
+.color-white-fg {
+    color: colors.$white;
+}
+
+.color-blue-fg {
+    color: colors.$blue;
+}
+
+.color-cyan-fg {
+    color: colors.$cyan;
+}
+
+.color-green-fg {
+    color: colors.$green;
+}
+
+.color-magenta-fg {
+    color: colors.$magenta;
+}
+
+.color-red-fg {
+    color: colors.$red;
+}
+
+.color-yellow-fg {
+    color: colors.$yellow;
+}
+
+.color-ulysses-pink-fg {
+    color: colors.$ulysses-pink;
+}

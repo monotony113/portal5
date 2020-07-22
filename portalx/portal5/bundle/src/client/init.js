@@ -1,4 +1,4 @@
-// index.js
+// init.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -37,7 +37,7 @@ async function initServiceWorker() {
     if (registration) await registration.unregister()
     try {
         log('await navigator.serviceWorker.register')
-        await navigator.serviceWorker.register(`/~/access/service-worker.js`, { scope: '/' })
+        await navigator.serviceWorker.register(`/~/sw.js`, { scope: '/' })
         await waitAndReload()
     } catch (e) {
         log(e, console.error)

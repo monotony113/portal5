@@ -1,6 +1,6 @@
 // portal5.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-// /* {% if retain_comments %} */
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,15 +13,16 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-// /* {% endif %} */
 
 /* eslint-env serviceworker */
 
-/* {% set retain_import_exports = False %} */
-/* {% if retain_import_exports %} */
-const parse5 = require('parse5')
 const { Injector } = require('./injector')
-/* {% endif %} */
+var parse5
+try {
+    parse5 = require('parse5')
+} catch (e) {
+    parse5 = undefined
+}
 
 class Portal5 {
     constructor(settings) {
@@ -101,7 +102,7 @@ class Portal5 {
                 if (text.length) {
                     let document = parse5.parse(text)
                     let observer = Injector.makeElementNode('script', {
-                        src: `/~/scripts/responsive/injection.js?args=${btoa(JSON.stringify({base: base}))}`,
+                        src: `/~/client/injection.js?args=${btoa(JSON.stringify({ base: base }))}`,
                         referrerpolicy: 'no-referrer',
                     })
                     let head = Injector.dfsFirstInTree(document, (node) => node.tagName === 'head', 'childNodes')
@@ -123,6 +124,4 @@ class Portal5 {
 }
 Portal5.headerName = 'X-Portal5'
 
-/* {% if retain_import_exports %} */
 module.exports = { Portal5 }
-/* {% endif %} */

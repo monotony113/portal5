@@ -73,13 +73,13 @@ def setup_jinja(app: Flask):
     app.jinja_env.trim_blocks = True
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.strip_trailing_newlines = False
-    app.jinja_env.add_extension('jinja2.ext.i18n')
 
 
 def create_app(*, override=None) -> Flask:
     app = Flask(
         __name__,
         instance_relative_config=True,
+        static_folder='bundle/static',
     )
     app.secret_key = secrets.token_urlsafe(20)
     app.config.from_object(config)
@@ -89,11 +89,12 @@ def create_app(*, override=None) -> Flask:
 
     security.setup_jwt(app)
     blacklist.setup_filters(app)
+
+    setup_jinja(app)
     i18n.setup_languages(app)
 
     setup_urls(app)
     setup_error_handling(app)
-    setup_jinja(app)
     setup_debug(app)
     load_blueprints(app)
 

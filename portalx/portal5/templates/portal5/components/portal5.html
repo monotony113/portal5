@@ -5,18 +5,18 @@
 {% block body %}
 <main>
     <article>
-        <h1><code>{{ title }}</code></h1>
+        <h1><code><span class="text-weight-300">portal5</span>:{{ title }}</code></h1>
         <noscript>
             <div id="worker-noscript">
-                <h3><strong>{{_('JavaScript is not enabled')}}</strong></h3>
-                <p><code>portal5</code> {{_('requires')}} <strong>JavaScript</strong> {{_('to work.')}}</p>
+                <h3><strong>JavaScript is not enabled</strong></h3>
+                <p><code>portal5</code> requires <strong>JavaScript</strong> to work.</p>
             </div>
-            <p>{{_('You may:')}}</p>
+            <p>You may:</p>
             <ul>
-                <li>{{_('Enable JavaScript in your browser, or switch to a newer browser.')}}</li>
+                <li>Enable JavaScript in your browser, or switch to a newer browser.</li>
                 {% block additional_noscript %}
                 {% endblock %}
-            </ul>            
+            </ul>
         </noscript>
         {% block main %}
         {% endblock %}

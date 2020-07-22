@@ -4,16 +4,16 @@
 {% set server = request.scheme + '://' + request.host %}
 
 {% set message %}
-<h1><strong>{{_( 'Limited service' )}}</strong></h1>
+<h1><strong>Limited service</strong></h1>
 <p><strong>
-        {{_( 'To protect' )}} <code><strong>{{ server }}</strong></code> {{_( 'and this tool from being detected, flagged, rate-limited, or blacklisted
-    by upstream servers, requests to certain domains and URLs are currently limited.' )}}
+        To protect <code><strong>{{ server }}</strong></code> and this tool from being detected, flagged, rate-limited, or blacklisted
+    by upstream servers, requests to certain domains and URLs are currently limited.
     </strong></p>
 
-<h2><strong>{{_( 'Requested URL:' )}}</strong></h2>
+<h2><strong>Requested URL:</strong></h2>
 <p style="text-indent: 2em;"><code><strong><a href="{{ remote }}" target="_blank">{{ remote }}</a></strong></code></p>
 
-<h2><strong>{{_( 'Filter matched:' )}}</strong></h2>
+<h2><strong>Filter matched:</strong></h2>
 <p style="text-indent: 2em;"><code><strong>{{ test.name }}</strong>
-        <strong><em>{{ test.description|default(_('(No description)')) }}</em></strong></code></p>
+        <strong><em>{{ test.description|default('(No description)') }}</em></strong></code></p>
 {% endset %}

@@ -1,6 +1,6 @@
 // rewriter.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-// /* {% if retain_comments %} */
+// 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,12 +13,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-// /* {% endif %} */
 
-/* {% set retain_import_exports = False %} */
-/* {% if retain_import_exports %} */
-const { Utils } = require('./utils').default
-/* {% endif %} */
+const { Utils } = require('./utils')
 
 class Rewriters {
     static synthesizeURL(base, referrer, requested, prefix) {
@@ -91,6 +87,4 @@ class Rewriters {
     }
 }
 
-/* {% if retain_import_exports %} */
 module.exports = { Rewriters }
-/* {% endif %} */

@@ -1,0 +1,300 @@
+@use 'colors';
+
+$cjk-serif: 'Lato',
+'Noto Serif SC',
+'Helvetica Neue',
+'Helvetica',
+-apple-system,
+BlinkMacSystemFont,
+'Noto Sans',
+'Ubuntu',
+'Open Sans',
+sans-serif;
+
+$monospace: 'Fira Code',
+'Inconsolata',
+'Consolas',
+'Ubuntu Mono',
+'Courier New',
+monospace;
+
+body {
+    margin: 0;
+
+    background-color: colors.$darkest;
+    color: colors.$white;
+
+    font-family: $cjk-serif;
+
+    font-size: 12pt;
+}
+
+main {
+    margin: 1rem 1rem 3rem;
+
+    @media screen and (max-width: 768px) {
+        margin: 1rem 0.6rem 2rem;
+    }
+}
+
+p {
+    hyphens: auto;
+    overflow-wrap: break-word;
+}
+
+a {
+    color: colors.$blue;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+strong,
+em,
+span,
+mark {
+    &>a {
+        color: inherit;
+    }
+}
+
+header {
+    margin-top: 60px;
+}
+
+header,
+article {
+    margin: auto 26% auto;
+    display: block;
+
+    @media screen and (min-width: 768px) and (max-width: 1024px) {
+        margin: auto 16% auto;
+    }
+
+    @media screen and (max-width: 768px) {
+        margin: auto 3% auto;
+    }
+
+    p,
+    li,
+    td {
+        line-height: 1.8rem;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: $cjk-serif;
+    }
+}
+
+article {
+    h1 {
+        margin: 4rem auto 3rem;
+    }
+
+    h2 {
+        margin: 2rem auto 1.5rem;
+    }
+
+    @media screen and (max-width: 768px) {
+        h1 {
+            margin: 2rem auto 1rem;
+        }
+
+        h2 {
+            margin: 1.5rem auto 0.8rem;
+        }
+    }
+}
+
+h1,
+h2,
+h3,
+h4 {
+    color: colors.$ulysses-blue;
+    font-weight: 900;
+}
+
+h1 {
+    font-size: 2rem;
+    margin: 0.5rem auto 1.5rem;
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin: 0rem auto 1rem;
+}
+
+h3 {
+    font-size: 1.2rem;
+}
+
+h4 {
+    font-size: 1.2rem;
+    font-style: italic;
+}
+
+h5 {
+    font-size: 1rem;
+}
+
+h6 {
+    font-size: 0.8rem;
+}
+
+p,
+li {
+    line-height: 1.5rem;
+}
+
+ul {
+    list-style: none;
+
+    & ol {
+        list-style: unset;
+    }
+}
+
+li {
+    padding: 0 0 0.5rem;
+    text-indent: -5px;
+
+    &:before {
+        content: '-';
+        position: relative;
+        right: 5px;
+
+        blockquote {
+            margin: 0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+        }
+    }
+
+    &:last-of-type {
+        margin-bottom: 0;
+    }
+}
+
+blockquote {
+    font-size: 1rem;
+    line-height: 1.5rem;
+
+    margin: 1rem 0 1rem;
+    padding: 1rem 2rem;
+    color: colors.$ulysses-blue;
+    background-color: colors.$blue-darkest-85;
+
+    p {
+        margin: 0;
+    }
+}
+
+em {
+    color: colors.$ulysses-blue;
+}
+
+strong {
+    color: colors.$ulysses-pink;
+    font-weight: 700;
+}
+
+pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: normal;
+    margin: 0;
+}
+
+code {
+    font-family: $monospace;
+    background-color: colors.$mist;
+    color: colors.$white;
+    font-weight: 300;
+    letter-spacing: -0.3pt;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+blockquote {
+    code {
+        background-color: inherit;
+        color: inherit;
+        font-weight: inherit;
+    }
+}
+
+figure {
+    width: 100%;
+    margin: 2rem 0;
+
+    img {
+        display: block;
+        width: 90%;
+        margin: 0 auto 0;
+    }
+}
+
+mark {
+    color: colors.$ulysses-highlight-fg;
+    background-color: colors.$ulysses-highlight-bg;
+    border-color: colors.$ulysses-highlight-bg;
+    border: 3px;
+    border-radius: 2px;
+}
+
+hr {
+    border: 0.8px solid colors.$gray-darker;
+    margin: 2rem 1rem;
+}
+
+.hidden {
+    display: none;
+}
+
+audio {
+    width: 80%;
+    margin: 1rem auto;
+    display: block;
+}
+
+video,
+iframe {
+    width: 100%;
+    margin: 1rem auto;
+    display: block;
+}
+
+table {
+    table-layout: fixed;
+}
+
+td img {
+    max-width: 100%;
+    height: auto;
+}
+
+.cjk-serif {
+    font-family: 'Noto Serif SC', 'Songti SC', 'Adobe Song Std', serif !important;
+}
+
+.text-center-aligned {
+    text-align: center !important;
+}
+
+.text-weight-300 {
+    font-weight: 300;
+}
+
+* {
+    -webkit-font-smoothing: antialiased;
+}

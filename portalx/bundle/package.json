@@ -1,0 +1,17 @@
+{
+  "name": "portalx",
+  "version": "1.0.0",
+  "description": "Scripts and styles for portalx",
+  "main": "index.js",
+  "author": "Tony Wu",
+  "license": "AGPL-3.0-or-later",
+  "eslintConfig": {
+    "env": {
+      "es6": true,
+      "node": true
+    }
+  },
+  "scripts": {
+    "sass": "sass src/styles/:static/styles -s compressed"
+  }
+}

@@ -1,0 +1,6 @@
+@use 'colors';
+
+body {
+    background-color: colors.$darkest;
+    color: colors.$white;
+}

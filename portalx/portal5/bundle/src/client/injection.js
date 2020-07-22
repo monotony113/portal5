@@ -1,6 +1,6 @@
 // injection.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-// /* {% if retain_comments %} */
+// 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,13 +13,12 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-// /* {% endif %} */
 
 /* eslint-env browser */
 
 ;({
-    PREFIX: '{{ g.server_origin }}/',
-    BASE: new URL('{{ base }}'),
+    PREFIX: '{{ g.server_origin|default("") }}',
+    BASE: new URL('{{ base|default("") }}'),
     TARGET_ATTRS: ['href', 'src', 'action', 'data', 'formaction'],
     TARGET_ATTRS_CAP: undefined,
     ACCEPT_PROTOCOL: { 'http:': true, 'https:': true },
@@ -40,7 +39,7 @@
         async attach(body) {
             let template = document.createElement('template')
             if (!('content' in template)) return
-            let templateString = await fetch('/~/static/templates/injection-manager.html', {
+            let templateString = await fetch('/~/injection-manager.html', {
                 mode: 'same-origin',
                 referrer: '',
             }).then((r) => r.text())
@@ -151,7 +150,7 @@
             if (!(node.nodeType === Node.ELEMENT_NODE)) continue
             /** @type {Element} */
             let element = node
-            if (element.tagName == 'BODY') this.manager.attach(element)
+            if (element.tagName == 'BODY') this.manager.attach(element).catch(console.error)
             for (let j = this.TARGET_ATTRS.length - 1; j >= 0; j--) {
                 let attr = this.TARGET_ATTRS[j]
                 if (element.hasAttribute(attr))

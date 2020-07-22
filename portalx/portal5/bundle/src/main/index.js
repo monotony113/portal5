@@ -1,6 +1,6 @@
 // service-worker.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-// /* {% if retain_comments %} */
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -13,37 +13,17 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-// /* {% endif %} */
 
 /* eslint-env serviceworker */
 
-/* {% set retain_comments = False %} */
-/* {% set retain_import_exports = False %} */
+self.settings = JSON.parse('{{ settings|default(dict({"":0}))|tojson }}')
+self.urlRules = JSON.parse('{{ url_rules|default(dict({"":0}))|tojson }}')
 
-//
-//
+if (self.settings.vendor) importScripts('/~/static/vendor.min.js')
 
-/* {% if retain_comments %} */
-/**
- * The require statements here are for local development only (for type hinting, etc).
- * They get parsed out by the template engine before the script is served to the client.
- *
- * Comments that contain quotations such as `{% set noop = False %}` and `{{ retain_comments }}`
- * are directives for the template engine.
- */
-/* {% endif %} */
-/* {% if retain_import_exports %} */
+const { Portal5 } = require('./portal5')
 const { Rewriters } = require('./rewriter')
 const { TranscientStorage, ClientRecordStorage, Utils } = require('./utils')
-const { Portal5 } = require('./portal5')
-// const _ = require('lodash')
-/* {% endif %} */
-
-importScripts('/~/scripts/injector.js', '/~/scripts/rewriter.js', '/~/scripts/portal5.js', '/~/scripts/utils.js')
-// importScripts('/~/static/scripts/lodash.min.js')
-
-//
-//
 
 function securityCheck(event) {
     /** @type {Request} */
@@ -375,9 +355,6 @@ self.destinationRequiresRedirect = {
     worker: true,
 }
 
-self.settings = JSON.parse('{{ settings|default(dict())|tojson }}')
-self.urlRules = JSON.parse('{{ url_rules|default(dict())|tojson }}')
-
 self.server = self.settings.origin
 self.directives = {}
 
@@ -398,7 +375,3 @@ self.addEventListener('fetch', noRewrite)
 self.addEventListener('fetch', (event) => {
     event.respondWith(interceptFetch(event))
 })
-
-/* {% if requires_bundle %} */
-importScripts('/~/static/scripts/bundle.min.js')
-/* {% endif %} */

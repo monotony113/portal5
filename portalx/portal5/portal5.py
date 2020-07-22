@@ -114,7 +114,7 @@ class PreferenceMixin:
         ))
 
     @property
-    def requires_bundle(self):
+    def requires_vendor(self):
         bitmask = self.get_bitmask()
         return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
 
@@ -344,6 +344,7 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
             'version': self.VERSION,
             'signals': self.signals,
             'origin': server,
+            'vendor': self.requires_vendor,
         }
         rules = {
             'endpoints': config.endpoint_handlers,

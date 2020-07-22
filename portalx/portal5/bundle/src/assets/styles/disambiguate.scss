@@ -1,3 +1,20 @@
+$dark-1: #21252c;
+$dark-2: #272c33;
+
+$even-item: $dark-1;
+$odd-item: $dark-2;
+
+$green-darker: #1e221b;
+$green-dark: #637c51;
+$green: #96c475;
+
+$highlighted-background: $green-darker;
+$highlighted-secondary:  $green-dark;
+$highlighted-primary: $green;
+
+$text: #abb2bf;
+$url-style: #5cadf1;
+
 .candidate-container {
     display: flex;
     flex-flow: row nowrap;
@@ -16,16 +33,16 @@
     }
 
     &.container-style-0 {
-        background-color: #21252c;
+        background-color: $even-item;
     }
 
     &.container-style-1 {
-        background-color: #272c33;
+        background-color: $odd-item;
     }
 
     &.container-style-selected {
-        background-color: #1e221b;
-        color: #637c51;
+        background-color: $highlighted-background;
+        color: $highlighted-secondary;
 
         .urls {
 
@@ -34,7 +51,7 @@
             span,
             span.label {
                 background-color: unset;
-                color: #637c51;
+                color: $highlighted-secondary;
             }
 
             .to-url .url-list {
@@ -43,7 +60,7 @@
                 code {
                     font-weight: 900;
                     text-decoration: underline;
-                    color: #96c475;
+                    color: $highlighted-primary;
                 }
             }
         }
@@ -74,13 +91,13 @@
             }
 
             code {
-                margin: 2pt 0 0 0;
+                margin: .17rem 0 0 0;
                 white-space: nowrap;
             }
         }
 
         &.from-url .url-list {
-            color: #abb2bf;
+            color: $text;
         }
 
         &.to-url .url-list {
@@ -89,7 +106,7 @@
             code {
                 font-weight: 900;
                 text-decoration: underline;
-                color: #5cadf1;
+                color: $url-style;
             }
         }
 
@@ -106,8 +123,8 @@
                 letter-spacing: 0.1rem;
                 font-size: 0.6rem;
                 font-weight: 700;
-                color: #abb2bf;
-                margin: 1pt 0 0 0;
+                color: $text;
+                margin: .1rem 0 0 0;
             }
         }
     }
@@ -119,7 +136,7 @@
     flex-flow: column nowrap;
     justify-content: center;
     width: min-content;
-    margin: 0 5pt 0 10pt;
+    margin: 0 .4rem 0 .8rem;
 
     &.hidden {
         display: none;
@@ -127,7 +144,7 @@
 
     button {
         height: 1.5rem;
-        margin: 3pt 0;
+        margin: .28rem 0;
 
         text-align: center;
         vertical-align: middle;
@@ -137,10 +154,10 @@
         font-weight: 600;
 
         background-color: #00000000;
-        color: #96c475;
+        color: $highlighted-primary;
 
         border: none;
-        outline: #96c475 solid 1.5pt;
+        outline: $highlighted-primary solid .14rem;
 
         cursor: pointer;
     }

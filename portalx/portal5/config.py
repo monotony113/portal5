@@ -42,12 +42,12 @@ def collect_passthrough_urls():
 
 def client_side_handler(handler_name, **kwargs):
     def collector(view_func):
-        add_client_handler(view_func.__name__, handler_name, **kwargs)
+        add_client_handler(view_func.__name__, handler_name, virtual=False, **kwargs)
         return view_func
     return collector
 
 
-def add_client_handler(path, handler_name, virtual=False, **fetch_params):
+def add_client_handler(path, handler_name, virtual=True, **fetch_params):
     fetch_params = {
         'mode': ('navigate',),
         'method': ('GET', 'POST'),
