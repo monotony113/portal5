@@ -47,17 +47,21 @@ def client_side_handler(handler_name, **kwargs):
     return collector
 
 
-def add_client_handler(path, handler_name, **fetch_params):
+def add_client_handler(path, handler_name, virtual=False, **fetch_params):
     fetch_params = {
         'mode': ('navigate',),
         'method': ('GET', 'POST'),
         'referrer': ('',),
         **fetch_params,
     }
-    endpoints[path] = {
+    rule = {
         'handler': handler_name,
         'test': {param: {value: 1 for value in values} for param, values in fetch_params.items() if values},
     }
+    if virtual:
+        endpoint_handlers[path] = rule
+    else:
+        endpoints[path] = rule
 
 
 def resolve_client_handlers(blueprint_name):
