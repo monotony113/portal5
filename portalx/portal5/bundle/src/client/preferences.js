@@ -136,10 +136,17 @@ window.addEventListener('load', () => {
         })
     })
 
-    document.querySelectorAll('label').forEach((l) => {
-        l.addEventListener('click', (ev) => {
+    document.querySelectorAll('.option-name').forEach((l) => {
+        let toggleDescription = (ev) => {
             const option = ev.currentTarget.closest('.option-container')
             preferences.getOption(option.id).toggleDescription()
+        }
+        l.addEventListener('click', toggleDescription)
+        l.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault()
+                toggleDescription(ev)
+            }
         })
     })
     ;[

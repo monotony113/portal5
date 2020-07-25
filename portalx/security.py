@@ -146,7 +146,7 @@ def csp_protected(view_func):
             "default-src 'self'", "img-src 'self' data:",
             'font-src fonts.gstatic.com', "frame-ancestors 'none'",
             f"style-src 'self' static.{g.sld} fonts.googleapis.com",
-            "script-src 'self'", g_=g,
+            f"script-src 'self' static.{g.sld}", g_=g,
         )
         return out
     return add_csp

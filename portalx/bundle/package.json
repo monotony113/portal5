@@ -12,6 +12,8 @@
     }
   },
   "scripts": {
-    "sass": "sass src/styles/:static/styles -s compressed"
+    "sass": "sass src/styles/:static/styles -s compressed",
+    "js": "rsync -avR src/./scripts static",
+    "build": "npm run sass && npm run js"
   }
 }

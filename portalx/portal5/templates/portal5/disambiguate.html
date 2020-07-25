@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script src="/~/client/disambiguate.js"></script>
 {% endblock %}
 
@@ -20,7 +21,7 @@
     {% set base = candidate['base'] %}
     {% set referrer = candidate['ref'] %}
     {% set dest = candidate['dest'] %}
-    <div class="candidate-container container-style-{{ loop.index % 2 }}" id="url-candidate-{{ loop.index }}" data-referrer="{{ referrer.geturl() }}"
+    <div class="candidate-container container-style-{{ loop.index % 2 }}" id="url-candidate-{{ loop.index }}" tabindex="0" data-referrer="{{ referrer.geturl() }}"
         data-dest="{{ dest.geturl() }}">
         <div class="urls">
             {% for label, url in {'from': base, 'to': dest}.items() %}
@@ -34,7 +35,7 @@
             {% endfor %}    
         </div>
         <div class="actions hidden">
-            <button type="submit" name="submit-button" class="button-visit">Visit</button>
+            <button type="submit" name="submit-button" class="button-visit" tabindex="-1">Visit</button>
         </div>
     </div>
     {% endfor %}

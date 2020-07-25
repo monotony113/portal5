@@ -21,7 +21,6 @@ button {
 
 label {
     display: inline-block;
-    cursor: pointer;
 }
 
 .option-container {
@@ -84,6 +83,11 @@ label {
         margin: 0;
         display: flex;
         margin: 0 .4rem 0;
+        cursor: pointer;
+
+        label {
+            cursor: pointer;
+        }
     }
 
     .multi-option-confirm {

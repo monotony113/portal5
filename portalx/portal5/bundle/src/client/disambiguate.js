@@ -77,6 +77,18 @@ class Form {
             element.addEventListener('mouseleave', (ev) => {
                 this.toggle(ev.currentTarget.id, false)
             })
+            element.addEventListener('focusin', (ev) => {
+                this.toggle(ev.currentTarget.id, true)
+            })
+            element.addEventListener('focusout', (ev) => {
+                this.toggle(ev.currentTarget.id, false)
+            })
+            element.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault()
+                    this.form.submit()
+                }
+            })
             element.addEventListener('click', () => {
                 this.form.submit()
             })

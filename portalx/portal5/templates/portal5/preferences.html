@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script src="/~/client/preferences.js"></script>
 {% endblock %}
 
@@ -24,7 +25,7 @@
     <div id="{{ option_id|replace('_', '-') }}" class="option-container">
         <div class="option">
             <input type="hidden" name="{{ option_id }}" value="{{ details.enabled|int }}" />
-            <h5 class="option-name"><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
+            <h5 class="option-name" tabindex="0"><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
             <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg"
                 data-color="{{ color }}">
                 {{- 'on' if details.enabled else 'off' -}}

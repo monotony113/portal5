@@ -5,8 +5,8 @@
 {% block body %}
 <main>
     <article>
-        <h1>No URL scheme specified.</h1>
-        <p>Did you mean to go to <code><a href="{{ server }}/{{ remote }}">{{ remote }}</a></code>?</p>
+        <h1>{% trans %}No URL scheme specified.{% endtrans %}</h1>
+        <p>{% trans %}Did you mean to go to{% endtrans %} <code><a href="{{ server }}/{{ remote }}">{{ remote }}</a></code>?</p>
     </article>
 </main>
 {% endblock %}
