@@ -32,6 +32,7 @@
         console: undefined,
         observatory: undefined,
         isHidden: true,
+        pref2: new (require('./preferences2').Preferences2)(),
         /**
          *
          * @param {HTMLBodyElement} body
@@ -63,15 +64,9 @@
             manager.getElementById('p5-option-close').addEventListener('click', this.toggleVisible.bind(this))
 
             let doNotShow = manager.getElementById('p5-option-disable-warning')
-            let doNotShowLabel = manager.getElementById('p5-option-disable-warning-label')
-            doNotShow.addEventListener('change', this.setCookie)
-            doNotShowLabel.addEventListener('click', () => {
-                let checkbox = this.element.querySelector('#p5-option-disable-warning')
-                checkbox.checked = !checkbox.checked
-                checkbox.dispatchEvent(new Event('change'))
-            })
+            doNotShow.addEventListener('change', this.setCookie.bind(this))
             let element = manager.getElementById('p5-injection-manager')
-            if (document.cookie.split('; ').includes('p5popup=-1')) {
+            if (this.pref2.get('nopopup')) {
                 element.classList.add('p5-hidden')
                 doNotShow.checked = true
             }
@@ -132,9 +127,7 @@
             return button
         },
         setCookie(event) {
-            let checkbox = event.currentTarget
-            if (checkbox.checked) document.cookie = 'p5popup=-1;path=/;max-age=31536000'
-            else document.cookie = 'p5popup=1;path=/;max-age=0'
+            this.pref2.set('nopopup', event.currentTarget.checked)
         },
         toggleVisible() {
             return this.element.classList.toggle('p5-hidden')
@@ -261,7 +254,9 @@
 
         fetch(this.BASE, { method: 'HEAD' })
         let normalizedPath = window.location.pathname.replace(this.BASE.origin + '/', '').replace(/^\/+/, '/')
-        window.history.pushState('', document.title, normalizedPath + window.location.search + window.location.hash)
+        let search = new URLSearchParams(window.location.search)
+        search.set('_p5origin', this.BASE.origin)
+        window.history.pushState('', document.title, normalizedPath + '?' + search.toString() + window.location.hash)
 
         this.observer = new MutationObserver(this.mutationCallback.bind(this))
         this.startObserving()

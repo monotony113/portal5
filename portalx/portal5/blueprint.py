@@ -20,9 +20,10 @@ from urllib.parse import SplitResult, quote, unquote, urljoin, urlsplit
 from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, Request, Response, abort, current_app, g, redirect, render_template, request
 
-from .. import common, security
+from .. import common, security, i18n
+from ..exceptions import PortalMissingDomain, PortalMissingProtocol
 from ..jwtkit import get_jwt
-from . import config
+from . import config, exceptions
 from .portal5 import Portal5
 
 APPNAME = 'portal5'
@@ -53,6 +54,7 @@ def setup():
 @portal5.before_request
 def parse_p5():
     g.p5 = Portal5(request)
+    i18n.override_language(g.p5.get_lang())
 
 
 @portal5.url_value_preprocessor
@@ -160,6 +162,10 @@ def get_prefs():
 @revalidate_if_outdated
 @security.expects_jwt_in('cookies', key=Portal5.COOKIE_AUTH)
 @security.rejects_jwt_where(
+    security.jwt_is_not_supplied,
+    respond_with=lambda *__, **_: exceptions.Portal5SettingsNotSaved(),
+)
+@security.rejects_jwt_where(
     security.jwt_has_invalid_subject,
     security.jwt_does_not_claim(_privilege='nochange'),
     Portal5.jwt_version_is_outdated,
@@ -250,6 +256,11 @@ def resolve_url(requested: SplitResult, *, prefix=''):
         url_ = SplitResult(*[*requested[:2], '/', *requested[3:]])
 
     guard = common.guard_incoming_url(g, url_, request)
+    if isinstance(guard, (PortalMissingDomain, PortalMissingProtocol)):
+        origin = request.args.get('_p5origin')
+        if origin:
+            url_ = urlsplit(f'{origin}{url_.geturl()}')
+            guard = None
     if guard:
         abort(guard)
 

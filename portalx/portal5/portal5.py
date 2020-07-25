@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import base64
 import json
 import uuid
 from datetime import timedelta
@@ -34,6 +35,8 @@ APPNAME = 'portal5'
 class PreferenceMixin:
     __slots__ = ()
 
+    COOKIE_PREFS = 'portal5prefs'
+
     def __init__(self, request):
         if self.prefs is not None:
             self.set_bitmask(self.prefs)
@@ -44,6 +47,11 @@ class PreferenceMixin:
             else:
                 self.signals['nopref'] = 1
                 self.set_bitmask(bits_to_mask(self._defaults))
+
+        try:
+            self.prefs2 = json.loads(base64.b64decode(request.cookies.get(self.COOKIE_PREFS2, '')).decode('utf8'))
+        except Exception:
+            self.prefs2 = {}
 
         self.register_action(self.write_prefs_cookie)
 
@@ -119,6 +127,31 @@ class PreferenceMixin:
         return bool(bits_to_mask(FEATURES_BUNDLE_REQUIRING) & bitmask)
 
 
+class PreferenceMixin2:
+    __slots__ = ()
+
+    COOKIE_PREFS2 = 'portal5prefs2'
+
+    def __init__(self, request):
+        try:
+            self.prefs2 = json.loads(base64.b64decode(request.cookies.get(self.COOKIE_PREFS2, '')).decode('utf8'))
+        except Exception:
+            self.prefs2 = {}
+
+        self.register_action(self.write_prefs2_cookie)
+
+    @classmethod
+    def write_prefs2_cookie(cls, p5, response):
+        if p5.mode == 'navigate':
+            response.set_cookie(
+                cls.COOKIE_PREFS2, base64.b64encode(json.dumps(p5.prefs2).encode()).decode('utf8'),
+                max_age=cls.COOKIE_MAX_AGE, path='/', secure=True,
+            )
+
+    def get_lang(self):
+        return self.prefs2.get('lang')
+
+
 class FeaturesMixin:
     __slots__ = ()
 
@@ -149,6 +182,8 @@ class FeaturesMixin:
 
 class JWTMixin:
     __slots__ = ()
+
+    COOKIE_AUTH = 'portal5auth'
 
     def __init__(self, request):
         self.tokens = []
@@ -252,9 +287,9 @@ FEATURES_CLIENT_SPECIFIC = {0, 3, 7}
 FEATURES_BUNDLE_REQUIRING = {7}
 
 
-class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin, FeaturesMixin):
+class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin, PreferenceMixin2, FeaturesMixin):
     __slots__ = (
-        'id', 'version', 'prefs',
+        'id', 'version', 'prefs', 'prefs2',
         'mode', 'referrer', 'origin',
         'signals', 'feedback',
         'tokens', 'after_request',
@@ -263,8 +298,6 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
     VERSION = None
 
     HEADER = 'X-Portal5'
-    COOKIE_PREFS = 'portal5prefs'
-    COOKIE_AUTH = 'portal5auth'
 
     COOKIE_MAX_AGE = 86400 * 365
 
@@ -290,6 +323,7 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
         WorkerSignalMixin.__init__(self)
         JWTMixin.__init__(self, request)
         PreferenceMixin.__init__(self, request)
+        PreferenceMixin2.__init__(self, request)
 
     @property
     def valid(self):
@@ -318,6 +352,9 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
 
         cookies = info['cookies']
         cookies.pop(self.COOKIE_PREFS, None)
+
+        params = info['params']
+        params.pop('_p5origin', None)
 
         if self.referrer:
             headers['Referer'] = self.referrer
@@ -374,8 +411,17 @@ FEATURES_TEXTS = {
             'Note: This does not affect cookies set by scripts on the webpage. These cookies may not be set with proper domains/paths.',
         ],
     ),
+    'disambiguation_test_url': dict(
+        name='Test URLs in case of ambiguities',
+        desc=[
+            '<em>If <code>portal5</code> cannot determine the correct URL to the webpage you are visiting, test a list of possible URLs to narrow it down.</em>',
+            'This is done by sending a <code>HEAD</code> request to each URL. Reduces the chances of needing to manually choose a link, at the expense of leaking '
+            'URL information to sites that you did not intend to visit.',
+            'Additionally, this may not work if one of the sites does not return an appropriate status code for a non-existent URL.',
+        ],
+    ),
     'security_enforce_cors': dict(
-        name='Enforce CORS <code>Access-Control-Allow-Origin</code> header',
+        name='Simulate browser CORS behavior',
         desc=[
             'Recommended. <em>Modify the <code>Access-Control-Allow-Origin</code> header following these rules:</em>',
             '<ul>'
@@ -393,8 +439,8 @@ FEATURES_TEXTS = {
             'NOT recommended. <em>Append <code>%(server_origin)s</code> to all CSP directives that specify sources,</em> except for '
             "those that specify <code>'none'</code>. Doing so ensures that browsers can load resources as if the webpage is not "
             'proxied by this tool.',
-            '<strong>However, doing so entirely defeats the purpose of CSP,</strong> '
-            'as (potentially malicious) contents that would otherwise be forbidden by CSP will now also be loaded.',
+            '<strong>However, doing so defeats the purpose of CSP,</strong> '
+            'because (potentially malicious) contents that would otherwise be forbidden by CSP will now also be loaded.',
             'If disabled, CSP headers will be transmitted unmodified, and resources protected by CSP directives may not load.',
         ],
         color='yellow',
@@ -415,7 +461,7 @@ FEATURES_TEXTS = {
         ],
     ),
     'injection_dom_hijack': dict(
-        name='Enable DOM script injection',
+        name='Enable script injection',
         desc=[
             'Experimental feature. <em>Allow Service Worker to <strong>inject scripts</strong> into an HTML document, granting this tool '
             'the ability to modify all contents on a webpage.</em>',
@@ -426,10 +472,7 @@ FEATURES_TEXTS = {
             '<li><em>This allows requests to embedded contents such as <code>iframe</code>s to go through this tool.</em> Same as above: '
             'without rewriting their URLs, requests to these contents will bypass Service Worker, which means that they may not load correctly.</li>'
             '</ul>',
-            'Note: This feature currently looks for all <code>href</code>, <code>src</code>, <code>data-href</code>, and <code>data-src</code> '
-            'attributes. If the webpage you are visiting uses other non-conventional attributes for URLs, they will not be rewritten. '
-            'The same goes for URLs generated dynamically by scripts.',
         ],
-        color='red',
+        color='blue',
     ),
 }

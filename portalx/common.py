@@ -57,9 +57,9 @@ def guard_incoming_url(g, requested: SplitResult, flask_request: Request):
             if query:
                 requested = f'{requested}?{query}'
             return exceptions.PortalMissingProtocol(requested)
-        return exceptions.PortalBadRequest(f'Unsupported URL scheme "{requested.scheme}"')
+        return exceptions.PortalUnsupportedScheme(requested.scheme)
     if not requested.netloc:
-        return exceptions.PortalBadRequest(f'URL <code>{requested.geturl()}</code> missing website domain name or location.')
+        return exceptions.PortalMissingDomain(requested.geturl())
 
     return None
 

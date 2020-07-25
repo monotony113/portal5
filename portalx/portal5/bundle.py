@@ -20,7 +20,7 @@ from functools import wraps
 
 from flask import Blueprint, Response, abort, g, render_template, request
 
-from .. import common, security
+from .. import common, security, i18n
 from ..jwtkit import get_jwt, get_private_claims, verify_claims
 from . import config
 from .blueprint import get_p5
@@ -42,6 +42,7 @@ def setup():
 @p5bundle.before_request
 def parse_p5():
     g.p5 = Portal5(request)
+    i18n.override_language(g.p5.get_lang())
 
 
 def mimetype(mime_):
@@ -87,7 +88,7 @@ def init_with_token():
 
 @p5bundle.route('/sw.js')
 @security.expects_jwt_in('cookies', key=Portal5.COOKIE_AUTH)
-@security.rejects_jwt_where(security.jwt_is_not_supplied, respond_with=lambda *_, **__: ('', 304))
+@security.rejects_jwt_where(security.jwt_is_not_supplied, respond_with=lambda *__, **_: ('', 304))
 @security.rejects_jwt_where(security.jwt_has_invalid_subject, Portal5.jwt_version_is_outdated)
 @mimetype('js')
 def service_worker():

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+const pref2 = new (require('./preferences2').Preferences2)()
+
 const dependencies = JSON.parse('{{ dep|default(dict({"":0}))|tojson }}')
 const requirements = JSON.parse('{{ req|default(dict({"":0}))|tojson }}')
 
@@ -23,7 +25,7 @@ class Preferences {
         this.ids = []
     }
     findAllOptions() {
-        let optionElements = document.querySelectorAll('.option-container')
+        let optionElements = document.querySelectorAll('.form-option')
         for (let i = 0; i < optionElements.length; i++) {
             let elem = optionElements[i]
             let id = elem.id
@@ -119,9 +121,40 @@ class PreferenceOption {
     }
 }
 
+class SecondaryOption {
+    constructor(id) {
+        this.id = id
+        this.container = document.getElementById(id)
+        this.input = this.container.getElementsByClassName('secondary-option-value')[0]
+
+        this.key = this.container.dataset.key
+
+        this.input.addEventListener('change', () => pref2.set(this.key, this.input.value))
+        this.setDefaultValue()
+    }
+    get uiSetter() {
+        switch (this.input.tagName) {
+            case 'SELECT':
+                return (value) => {
+                    let options = this.input.getElementsByTagName('option')
+                    for (let i = options.length - 1; i >= 0; i--) {
+                        let opt = options[i]
+                        if (opt.value === value) opt.selected = true
+                        else opt.selected = false
+                    }
+                }
+            default:
+                return () => {}
+        }
+    }
+    setDefaultValue() {
+        this.uiSetter(pref2.get(this.key))
+    }
+}
+
 const preferences = new Preferences()
 
-window.addEventListener('load', () => {
+window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         history.pushState('', document.title, window.location.pathname + window.location.search)
     }, 5000)
@@ -131,7 +164,7 @@ window.addEventListener('load', () => {
     document.querySelectorAll('.toggle-button').forEach((btn) => {
         btn.addEventListener('click', (ev) => {
             if (preferences.hasPendingChanges) return
-            const container = ev.currentTarget.closest('.option-container')
+            const container = ev.currentTarget.closest('.form-option')
             if (!preferences.syncOptions(container.id)) preferences.getOption(container.id).value = undefined
         })
     })
@@ -157,4 +190,6 @@ window.addEventListener('load', () => {
             .querySelectorAll(pair[0])
             .forEach((btn) => btn.addEventListener('click', () => preferences.flushChange(pair[1])))
     )
+
+    document.querySelectorAll('.secondary-option').forEach((opt) => new SecondaryOption(opt.id))
 })

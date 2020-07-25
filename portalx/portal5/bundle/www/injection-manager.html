@@ -1,23 +1,33 @@
 <div id="p5-injection-manager" class="p5-injection-manager">
     <link rel="stylesheet" href="/~/static/assets/styles/injection-manager.css" referrerpolicy="no-referrer"
         data-p5-ignore>
+    <link rel="stylesheet" type="text/css" data-p5-ignore
+        href="//fonts.googleapis.com/css2?family=Fira+Code:wght@300;700&family=Lato:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap&subset=latin-ext">
+    {% if g.lang in {'zh-CN': 1} %}
+    <link rel="stylesheet" type="text/css" data-p5-ignore
+        href="//fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700;900&display=swap">
+    {% endif %}
     <meta name="referrer" content="no-referrer">
     <div id="p5-warn-content-modified" class="p5-container">
-        <h2>Page content has been modified</h2>
+        <h2>{% trans %}Page content has been modified{% endtrans %}</h2>
         <p>
+            {% trans %}
             To allow <code>portal5</code> to work better, the following content
             has been modified by a script that is injected into this page:
+            {% endtrans %}
         </p>
         <ul>
-            <li>All hyperlinks and resource URLs on this page</li>
+            <li>{% trans %}All hyperlinks and resource URLs on this page{% endtrans %}</li>
         </ul>
         <ul id="p5-actions">
-            <li><a id="p5-option-more-info">more info</a></li>
+            <li><a id="p5-option-more-info">{% trans %}more info{% endtrans %}</a></li>
             <li>
                 <input type="checkbox" id="p5-option-disable-warning" class="p5-checkbox" name="disable_warning">
-                <a id="p5-option-disable-warning-label">don't show again</a>
+                <label for="p5-option-disable-warning">
+                    <a id="p5-option-disable-warning-label">{% trans %}don't show again{% endtrans %}</a>
+                </label>
             </li>
-            <li><a id="p5-option-close">close</a></li>
+            <li><a id="p5-option-close">{% trans %}close{% endtrans %}</a></li>
         </ul>
     </div>
     <div id="p5-warn-security" class="p5-container p5-container-optional p5-hidden">
@@ -48,6 +58,4 @@
     <div id="p5-console" class="p5-container p5-container-optional p5-hidden">
         <pre><code></code></pre>
     </div>
-    <link rel="stylesheet" data-p5-ignore
-        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;700&family=Lato:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap&subset=latin-ext">
 </div>

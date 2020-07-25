@@ -7,20 +7,12 @@ $emphasis: #46acdb;
 #p5-injection-manager {
     all: initial;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 
     z-index: 2147483647;
 
     font-size: 11pt;
-    font-family: 'Lato',
-        'Helvetica Neue',
-        'Noto Serif SC',
-        'Helvetica',
-        -apple-system,
-        BlinkMacSystemFont,
-        'Noto Sans',
-        'Ubuntu',
-        'Open Sans',
-        sans-serif;
+    font-family: 'Lato', 'Noto Serif SC', 'Helvetica Neue', 'Helvetica', -apple-system, BlinkMacSystemFont, 'Noto Sans', 'Ubuntu', 'Open Sans', sans-serif;
 
     position: fixed;
     top: 0;
@@ -62,19 +54,16 @@ $emphasis: #46acdb;
     }
 
     .p5-checkbox {
-        width: 12px;
-        height: 12px;
-        position: relative;
-        display: inline-block;
-        visibility: hidden;
-        cursor: pointer;
+        display: none;
 
-        &:before {
+        &+label:before {
             content: '';
-            visibility: visible;
-            position: absolute;
+            cursor: pointer;
+            display: inline-block;
+            position: relative;
             width: 12px;
             height: 12px;
+            top: 2px;
             border-radius: 3px;
         }
     }
@@ -136,14 +125,12 @@ $emphasis: #46acdb;
     color: $background;
 
     .p5-checkbox {
-        &:before {
+        &+label:before {
             border: 1px solid $background;
         }
 
-        &:checked {
-            &:before {
-                background: url('data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiMxYTFhMWE7fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTAsMFYzMkgzMlYwWk0xNS40NywyMy43NGwtMy44MywzLjgzTDIuMDcsMThsNC44NS00Ljg1LDQuNzIsNC43MkwyNS4wOCw0LjQzbDQuODUsNC44NVoiLz48L3N2Zz4=');
-            }
+        &:checked+label:before {
+            background: url('data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiMxYTFhMWE7fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTAsMFYzMkgzMlYwWk0xNS40NywyMy43NGwtMy44MywzLjgzTDIuMDcsMThsNC44NS00Ljg1LDQuNzIsNC43MkwyNS4wOCw0LjQzbDQuODUsNC44NVoiLz48L3N2Zz4=');
         }
     }
 }

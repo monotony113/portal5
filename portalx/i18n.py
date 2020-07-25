@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 
 import click
-from flask import Flask, request
+from flask import Flask, request, g
 from flask_babel import Babel
 
 babel = Babel()
@@ -31,8 +31,8 @@ def setup_languages(app: Flask):
     @babel.localeselector
     def get_locale():
         lang = (
-            request.args.get('lang', None)
-            or request.cookies.get('_portalxlang', None)
+            getattr(g, '_lang', None)
+            or request.args.get('lang', None)
             or request.accept_languages.best_match(app.config['LANGUAGES'])
         )
         return lang and lang.replace('-', '_')
@@ -61,3 +61,7 @@ def setup_languages(app: Flask):
     @i18n.command()
     def compile():
         subprocess.run(['pybabel', 'compile', '-d', TRANSLATIONS])
+
+
+def override_language(lang):
+    g._lang = lang

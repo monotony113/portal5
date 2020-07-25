@@ -12,6 +12,10 @@
     <meta name="referrer" content="no-referrer">
     {% endblock %}
 
+    {% block scripts %}
+    <script async src="{{ static_server }}/scripts/lazy-stylesheets.js"></script>
+    {% endblock %}
+
     <title>{{ title|default('', true) }}</title>
 
     {% block styles %}
@@ -20,17 +24,15 @@
     {% macro google_fonts(async=true) -%}
     <link rel="stylesheet" media="{{ 'none' if async else 'all' }}"
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap">
+    {% if g.lang in {'zh-CN': 1} %}
     <link rel="stylesheet" media="{{ 'none' if async else 'all' }}"
         href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&display=swap">
+    {% endif %}
     {%- endmacro %}
     {{ google_fonts() }}
     <noscript>
         {{ google_fonts(false) }}
     </noscript>
-    {% endblock %}
-
-    {% block scripts %}
-    <script async src="{{ static_server }}/scripts/lazy-stylesheets.js"></script>
     {% endblock %}
 </head>
 

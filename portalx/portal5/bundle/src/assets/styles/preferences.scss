@@ -1,3 +1,5 @@
+$blue: #3c709b;
+$white: #d3d3d3;
 $marker: #ffd932ee;
 $dark: #1a1a1a;
 $teal-dark: #1e3b53c9;
@@ -12,11 +14,36 @@ button {
     flex-shrink: 0;
     cursor: pointer;
     height: 1.4rem;
-    font-size: 12pt;
+    font-size: 1rem;
 
     &.toggle-button {
         width: 3rem;
     }
+}
+
+select {
+    appearance: inherit;
+    -moz-appearance: inherit;
+    -webkit-appearance: inherit;
+
+    color: $white;
+    background-color: $blue;
+
+    border: none;
+    margin: 0;
+    padding: .1rem .5rem;
+    vertical-align: middle;
+    font-family: inherit;
+    font-weight: 700;
+    flex-shrink: 0;
+    height: 1.6rem;
+    font-size: .9rem;
+
+    max-width: 20%;
+    min-width: 100px;
+    text-overflow: ellipsis;
+
+    border-radius: 0;
 }
 
 label {
@@ -138,7 +165,7 @@ label {
     }
 }
 
-#updated {
+.message-flash {
     display: none;
 
     &:target {

@@ -38,6 +38,16 @@ class PortalBadRequest(PortalHTTPException):
         self.code = 400
 
 
+class PortalUnsupportedScheme(PortalBadRequest):
+    def __init__(self, scheme, **kwargs):
+        super().__init__(f'Unsupported URL scheme "{scheme}"', **kwargs)
+
+
+class PortalMissingDomain(PortalBadRequest):
+    def __init__(self, url, **kwargs):
+        super().__init__(f'URL <code>{url}</code> missing website domain name or location.', **kwargs)
+
+
 class PortalMissingProtocol(PortalBadRequest):
     def __init__(self, requested, **kwargs):
         super().__init__(None, **kwargs)

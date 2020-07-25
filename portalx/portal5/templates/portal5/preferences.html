@@ -13,6 +13,16 @@
 {% endblock %}
 
 {% block main %}
+<h2>interface</h2>
+<div id="lang" class="option-container secondary-option" data-key="lang">
+    <div class="option">
+        <h5 class="option-name"><label for="lang-select">Language</label></h5>
+        <select class="secondary-option-value" id="lang-select">
+            <option value="en-US">English</option>
+            <option value="zh-CN">简体中文 / Simplified Chinese</option>
+        </select>
+    </div>
+</div>
 
 <form action="/settings" method="POST">
 
@@ -21,11 +31,13 @@
 
     {% for option_id, details in options.items() %}
     {% set color = details.color|default('green') %}
+    {% set option_id_html = option_id|replace('_', '-') %}
 
-    <div id="{{ option_id|replace('_', '-') }}" class="option-container">
+    <div id="{{ option_id_html }}" class="option-container form-option">
         <div class="option">
-            <input type="hidden" name="{{ option_id }}" value="{{ details.enabled|int }}" />
-            <h5 class="option-name" tabindex="0"><span class="option-bullet">‣</span><label>{{ details.name|safe }}</label></h5>
+            <input type="hidden" id="input-{{ option_id_html }}" name="{{ option_id }}" value="{{ details.enabled|int }}" />
+            <h5 class="option-name" tabindex="0"><span
+                    class="option-bullet">‣</span><label for="input-{{ option_id_html }}">{{ details.name|safe }}</label></h5>
             <button type="button" class="toggle-button color-{{ color if details.enabled else 'gray' }}-bg"
                 data-color="{{ color }}">
                 {{- 'on' if details.enabled else 'off' -}}
@@ -49,7 +61,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
 
     <div class="form-footer">
-        <p class="color-green-fg" id="updated">Your preferences have been updated.</p>
+        <p class="color-green-fg message-flash" id="updated">Your preferences have been updated.</p>
         <button type="submit" name="action" value="update" class="color-cyan-bg">Save preferences</button>
     </div>
     <div class="form-postscript">
