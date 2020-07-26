@@ -143,6 +143,7 @@ def dispatch_observer():
 
 
 @p5bundle.route('/injection-manager.html')
+@p5bundle.route('/injection-manager~fonts.html')
 @config.client_side_handler('passthrough', mode=('same-origin',), referrer=None)
 def injection_manager_template():
     return render_template(get_public_path('www'))

@@ -40,6 +40,12 @@ def setup_languages(app: Flask):
     app.jinja_env.add_extension('jinja2.ext.i18n')
     app.jinja_env.policies['ext.i18n.trimmed'] = True
 
+    @app.before_request
+    def language_provider():
+        if not getattr(g, '_lang', None):
+            g._lang = get_locale()
+        g.get_lang = get_lang
+
     @app.cli.group()
     def i18n():
         pass
@@ -65,3 +71,7 @@ def setup_languages(app: Flask):
 
 def override_language(lang):
     g._lang = lang
+
+
+def get_lang():
+    return g._lang

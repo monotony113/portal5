@@ -52,6 +52,13 @@
             shadowRoot.append(manager)
             this.element = manager
             body.prepend(isolated)
+
+            templateString = await fetch('/~/injection-manager~fonts.html', {
+                mode: 'same-origin',
+                referrer: '',
+            }).then((r) => r.text())
+            template.innerHTML = templateString
+            document.getElementsByTagName('head')[0].append(template.content)
         },
         initInterface(manager) {
             manager.getElementById('p5-option-more-info').addEventListener('click', (event) => {

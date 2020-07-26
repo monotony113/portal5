@@ -276,7 +276,7 @@ async function interceptFetch(event) {
     let outbound = await makeFetch(request, referrer, final)
     return doFetch(outbound, {
         injection_dom_hijack: {
-            run: Portal5.rewriteResponse,
+            run: Portal5.inject,
             signal: 'hijack',
             args: [dest],
         },

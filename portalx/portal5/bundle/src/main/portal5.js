@@ -93,7 +93,7 @@ class Portal5 {
     static parseDirectives(response) {
         return JSON.parse(response.headers.get('X-Portal5-Signal') || '{}')
     }
-    static async rewriteResponse(response, base) {
+    static async inject(response, base) {
         let contentType = response.headers.get('Content-Type')
         if (contentType && contentType.startsWith('text/html')) {
             try {
