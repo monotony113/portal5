@@ -23,6 +23,7 @@ from urllib.parse import SplitResult, urlsplit
 
 from cryptography.fernet import Fernet
 from flask import Request, Response
+from flask_babel import _
 
 from .. import common, security
 from ..jwtkit import JWTKit, get_all_jwts, get_private_claims
@@ -94,10 +95,11 @@ class PreferenceMixin:
 
     def print_prefs(self, **kwargs):
         prefs = {}
+        text = print_features()
         for v in FEATURES_KEYS.values():
             option = {}
             option['enabled'] = v in self.prefs
-            option.update(FEATURES_TEXTS.get(v, {'name': v}))
+            option.update(text.get(v, {'name': v}))
             if 'desc' in option:
                 option['desc'] = [line % kwargs for line in option['desc']]
             section = prefs.setdefault(v.split('_')[0], {})
@@ -391,88 +393,113 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
         return settings, rules
 
 
-FEATURES_TEXTS = {
-    'basic_rewrite_crosssite': dict(
-        name='Redirect cross-site requests',
-        desc=[
-            'Let Service Worker intercept and redirect cross-site requests (those to a different domain) through this tool.',
-        ],
-    ),
-    'basic_set_headers': dict(
-        name='Forward HTTP headers',
-        desc=[
-            'Forward HTTP headers received from the remote server.',
-        ],
-    ),
-    'basic_set_cookies': dict(
-        name='Forward cookies',
-        desc=[
-            'Forward cookies received from the remote server, changing their domain and path values as appropriate.',
-            'Note: This does not affect cookies set by scripts on the webpage. These cookies may not be set with proper domains/paths.',
-        ],
-    ),
-    'disambiguation_test_url': dict(
-        name='Test URLs in case of ambiguities',
-        desc=[
-            '<em>If <code>portal5</code> cannot determine the correct URL to the webpage you are visiting, test a list of possible URLs to narrow it down.</em>',
-            'This is done by sending a <code>HEAD</code> request to each URL. Reduces the chances of needing to manually choose a link, at the expense of leaking '
-            'URL information to sites that you did not intend to visit.',
-            'Additionally, this may not work if one of the sites does not return an appropriate status code for a non-existent URL.',
-        ],
-    ),
-    'security_enforce_cors': dict(
-        name='Simulate browser CORS behavior',
-        desc=[
-            'Recommended. <em>Modify the <code>Access-Control-Allow-Origin</code> header following these rules:</em>',
-            '<ul>'
-            '<li>If it is set to <code>*</code>, it is kept unmodified</li>'
-            '<li>If it is set to a particular origin, then check if such origin matches the origin who requested the resource (e.g. the webpage); '
-            'if it matches, the header is set to <code>%(server_origin)s</code> so that the resource will be accepted by browsers, '
-            'and if it does not match, drop the <code>Access-Control-Allow-Origin</code> header so that the resource will be rejected by browsers.</li>'
-            '</ul>',
-            'If disabled, the <code>Access-Control-Allow-Origin</code> is transmitted unmodified.',
-        ],
-    ),
-    'security_break_csp': dict(
-        name='Bypass Content Security Policy (CSP) protection',
-        desc=[
-            'NOT recommended. <em>Append <code>%(server_origin)s</code> to all CSP directives that specify sources,</em> except for '
-            "those that specify <code>'none'</code>. Doing so ensures that browsers can load resources as if the webpage is not "
-            'proxied by this tool.',
-            '<strong>However, doing so defeats the purpose of CSP,</strong> '
-            'because (potentially malicious) contents that would otherwise be forbidden by CSP will now also be loaded.',
-            'If disabled, CSP headers will be transmitted unmodified, and resources protected by CSP directives may not load.',
-        ],
-        color='yellow',
-    ),
-    'security_clear_cookies_on_navigate': dict(
-        name='Clear cookies between cross-site visits',
-        desc=[
-            '<em>Delete all cookies when you navigate from one page to another page on a different domain.</em> '
-            'One major security caveats of this tool is that website cookies that would otherwise be separated under different domains '
-            'will now all stored under the same domain. Keeping cookies separate by domains ensures that one website cannot get cookies that '
-            'may contain sensitive information, such as login info, of another website. When using this tool, all websites you visit may see '
-            'cookies of other sites.',
-            'This option mitigates this security concern by asking your browser to clear out all cookies between visits to different websites. '
-            'Visits that stay within the same site are not affected. The drawback is that you may lose some functionalities on some websites. '
-            'Additionally, this option takes effect on all windows/tabs that are open, meaning that if you have multiple tabs open, and one of them '
-            'navigates to a different site, cookies on all tabs will be cleared, and you may notice inconsistencies in the behaviors of the webpages you are visiting.',
-            'Note: This option relies on the <code>Clear-Site-Data</code> header to work, which is not supported by all browsers.',
-        ],
-    ),
-    'injection_dom_hijack': dict(
-        name='Enable script injection',
-        desc=[
-            'Experimental feature. <em>Allow Service Worker to <strong>inject scripts</strong> into an HTML document, granting this tool '
-            'the ability to modify all contents on a webpage.</em>',
-            '<ul>'
-            '<li><em>This allows user-initiated navigations to go through this tool.</em> Before, if you click on a link on a webpage that '
-            'goes to a different domain, your browser will visit that domain directly, bypassing Service Worker altogether, and you will '
-            'exit this tool. Rewriting these URLs makes sure you stay on <code>%(server_origin)s</code>.</li>'
-            '<li><em>This allows requests to embedded contents such as <code>iframe</code>s to go through this tool.</em> Same as above: '
-            'without rewriting their URLs, requests to these contents will bypass Service Worker, which means that they may not load correctly.</li>'
-            '</ul>',
-        ],
-        color='blue',
-    ),
-}
+def print_features():
+    return {
+        'basic_rewrite_crosssite': dict(
+            name=_('Redirect cross-site requests'),
+            desc=[
+                _('Let Service Worker intercept and redirect cross-site requests (those to a different domain) through this tool.'),
+                _('If disabled, only redirect requests made to the same domain as that of the webpage.'),
+            ],
+        ),
+        'basic_set_headers': dict(
+            name=_('Forward HTTP headers'),
+            desc=[
+                _('Forward HTTP headers received from the remote server.'),
+                _('Disabling this most likely will break websites.'),
+            ],
+        ),
+        'basic_set_cookies': dict(
+            name=_('Forward cookies'),
+            desc=[
+                _('Forward cookies received from the remote server, changing their domain and path values as appropriate.'),
+                _('Note: This does not affect cookies set by scripts on the webpage. These cookies may not be set with proper domains/paths.'),
+            ],
+        ),
+        'disambiguation_test_url': dict(
+            name=_('Test URLs in case of ambiguities'),
+            desc=[
+                _('<em>If <code>portal5</code> cannot determine the correct URL to the webpage you are visiting, test a list of possible URLs to narrow it down.</em>'),
+                _(
+                    'This is done by sending a <code>HEAD</code> request to each URL. Reduces the chances of needing to manually choose a link, at the expense of leaking '
+                    'URL information to sites that you did not intend to visit.',
+                ),
+                _('Additionally, this may not work if one of the sites does not return an appropriate status code for a non-existent URL.'),
+            ],
+        ),
+        'security_enforce_cors': dict(
+            name=_('Emulate browser CORS behavior'),
+            desc=[
+                _(
+                    'Recommended for enforcing the <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy">same-origin policy</a>.'
+                    '<em>Modify the <code>Access-Control-Allow-Origin</code> header following these rules:</em>',
+                ),
+                '<ul>'
+                '<li>' + _('If it is set to <code>*</code>, it is kept unmodified') + '</li>'
+                '<li>' + _(
+                    'If it is set to a particular origin, then check if such origin matches the origin who requested the resource (e.g. the webpage); '
+                    'if it matches, the header is set to <code>%(server_origin)s</code> so that the resource will be accepted by browsers, '
+                    'and if it does not match, drop the <code>Access-Control-Allow-Origin</code> header so that the resource will be rejected by browsers.',
+                ) + '</li>'
+                '</ul>',
+                _('If disabled, the <code>Access-Control-Allow-Origin</code> is transmitted unmodified.'),
+            ],
+        ),
+        'security_break_csp': dict(
+            name=_('Bypass Content Security Policy (CSP) protection'),
+            desc=[
+                _(
+                    'NOT recommended. <em>Append <code>%(server_origin)s</code> to all <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/Security/CSP">CSP</a> '
+                    'directives that specify sources,</em> except for '
+                    "those that specify <code>'none'</code>. Doing so ensures that browsers can load resources as if the webpage is not "
+                    'proxied by this tool.',
+                ),
+                _(
+                    '<strong>However, doing so defeats the purpose of CSP,</strong> '
+                    'because (potentially malicious) contents that would otherwise be forbidden by CSP will now also be loaded.',
+                ),
+                _('If disabled, CSP headers will be transmitted unmodified, and resources protected by CSP directives may not load.'),
+            ],
+            color='yellow',
+        ),
+        'security_clear_cookies_on_navigate': dict(
+            name=_('Clear cookies between cross-site visits'),
+            desc=[
+                _('<em>Delete all cookies when you navigate from one page to another page on a different domain.</em>'),
+                _(
+                    'One major security caveats of this tool is that website cookies that would otherwise be separated under different domains '
+                    'will now all stored under the same domain. Keeping cookies separate by domains ensures that one website cannot get cookies that '
+                    'may contain sensitive information, such as login info, of another website. When using this tool, all websites you visit may see '
+                    'cookies of other sites.',
+                ),
+                _(
+                    'This option mitigates this security concern by asking your browser to clear out all cookies between visits to different websites. '
+                    'Visits that stay within the same site are not affected. The drawback is that you may lose some functionalities on some websites. '
+                    'Additionally, this option takes effect on all windows/tabs that are open, meaning that if you have multiple tabs open, and one of them '
+                    'navigates to a different site, cookies on all tabs will be cleared, and you may notice inconsistencies in the behaviors of the webpages you are visiting.',
+                ),
+                _('Note: This option relies on the <code>Clear-Site-Data</code> header to work, which is not supported by all browsers.'),
+            ],
+        ),
+        'injection_dom_hijack': dict(
+            name=_('Enable script injection'),
+            desc=[
+                _(
+                    'Experimental feature. <em>Allow Service Worker to <strong>inject scripts</strong> into an HTML document, granting this tool '
+                    'the ability to modify all contents on a webpage.</em>',
+                ),
+                '<ul>'
+                '<li>' + _(
+                    '<em>This makes it possible to intercept navigations that goes to a different domain.</em> Before, if you click on a link on a webpage that '
+                    'goes to a different domain, your browser will visit that domain directly, bypassing Service Worker altogether, and you will '
+                    'exit this tool. Rewriting these URLs makes sure you stay on',
+                ) + ' <code>%(server_origin)s</code>.</li>'
+                '<li>' + _(
+                    '<em>This allows requests to embedded contents such as <code>iframe</code>s to go through this tool.</em> Same as above: '
+                    'without rewriting their URLs, requests to these contents will bypass Service Worker, which means that they may not load correctly.',
+                ) + '</li>'
+                '</ul>',
+            ],
+            color='blue',
+        ),
+    }

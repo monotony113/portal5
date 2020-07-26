@@ -6,10 +6,10 @@
 {% set message %}
 <h1><strong>{% trans %}Limited service{% endtrans %}</strong></h1>
 <p><strong>
-        {% trans %}
+        {% trans -%}
         To protect <code><strong>{{ server }}</strong></code> and this tool from being detected, flagged, rate-limited,
         or blacklisted by upstream servers, requests to certain domains and URLs are currently limited.
-        {% endtrans %}
+        {%- endtrans %}
     </strong></p>
 
 <h2><strong>{% trans %}Requested URL:{% endtrans %}</strong></h2>

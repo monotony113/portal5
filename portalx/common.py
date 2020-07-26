@@ -21,6 +21,7 @@ from urllib.parse import SplitResult, urljoin, urlsplit
 
 import requests
 from flask import Request, Response, abort, stream_with_context
+from flask_babel import _
 from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.wrappers.response import Response as BaseResponse
 
@@ -97,19 +98,19 @@ def pipe_request(outbound: requests.PreparedRequest) -> Tuple[requests.Response,
     # except HTTPException as e:
     #     raise e
     except requests.HTTPError as e:
-        return abort(int(e.response.status_code), f'Got HTTP {e.response.status_code} while accessing <code>{outbound.url}</code>')
+        return abort(int(e.response.status_code), _('Got HTTP %(code)d while accessing <code>%(url)s</code>', code=e.response.status_code, url=outbound.url))
     except requests.exceptions.TooManyRedirects:
-        return abort(400, f'Unable to access <code>{outbound.url}</code><br/>Too many redirects.')
+        return abort(400, _('Unable to access <code>%(url)s</code><br/>Too many redirects.', url=outbound.url))
     except requests.exceptions.SSLError:
-        return abort(502, f'Unable to access <code>{outbound.url}</code><br/>An TLS/SSL error occured, remote server may not support HTTPS.')
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>An TLS/SSL error occured, remote server may not support HTTPS.', url=outbound.url))
     except requests.ConnectionError:
-        return abort(502, f'Unable to access <code>{outbound.url}</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.')
+        return abort(502, _('Unable to access <code>%(url)s</code><br/>Resource may not exist, or be available to the server, or outgoing traffic at the server may be disrupted.', url=outbound.url))
     except Exception as e:
-        return abort(500, dedent(f"""
+        return abort(500, dedent(_("""
         <pre><code>An unhandled error occured while processing this request.
-        Parsed URL: {outbound.url}
-        Error name: {e.__class__.__name__}</code></pre>
-        """))
+        Parsed URL: %(url)s
+        Error name: %(error)s</code></pre>
+        """, url=outbound.url, error=e.__class__.__name__)))
 
 
 def copy_headers(remote: requests.Response, response: Response, *, server_origin, **kwargs) -> Headers:

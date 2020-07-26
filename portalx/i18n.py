@@ -38,7 +38,6 @@ def setup_languages(app: Flask):
         return lang and lang.replace('-', '_')
 
     app.jinja_env.add_extension('jinja2.ext.i18n')
-    app.jinja_env.policies['ext.i18n.trimmed'] = True
 
     @app.before_request
     def language_provider():

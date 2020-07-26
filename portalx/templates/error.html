@@ -15,10 +15,10 @@
 {% elif statuscode == 404 %}
 {% set text = "Not Found" %}
 {% set extra %}
-{% set http_451 %}
+{% set http_451 -%}
 <mark><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/451" target="_blank"><code>HTTP <span
                 class="color-ulysses-pink-fg">451</span> Unavailable For Legal Reasons</code></a></mark>
-{% endset %}
+{%- endset %}
 <h5>{% trans %}(Not to be confused with {{ http_451 }}){% endtrans %}</h5>
 {% endset %}
 

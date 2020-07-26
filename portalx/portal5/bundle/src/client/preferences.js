@@ -110,8 +110,12 @@ class PreferenceOption {
         if (status === 'on') hint.classList.remove('hidden')
         else hint.classList.add('hidden')
         if (status === 'on') {
-            hint.getElementsByTagName('span')[0].innerText = willEnable ? 'Enabling' : 'Disabling'
-            hint.getElementsByTagName('mark')[0].innerText = willEnable ? 'enable' : 'disable'
+            hint.getElementsByTagName('span')[0].innerText = willEnable
+                ? '{% trans %}Enabling{% endtrans %}'
+                : '{% trans %}Disabling{% endtrans %}'
+            hint.getElementsByTagName('mark')[0].innerText = willEnable
+                ? '{% trans %}enable{% endtrans %}'
+                : '{% trans %}disable{% endtrans %}'
         }
     }
     setHighlight(status) {

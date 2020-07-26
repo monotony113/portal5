@@ -1,13 +1,5 @@
 {% extends 'portal5/components/portal5.html' %}
 
-{% set use_portal3 %}
-<li>
-    Use <code><em>portal3</em></code>, a previous version of this tool that relies on cookies for redirection.
-    <br>
-    → <code><strong><a href="//portal3.{{ g.sld }}/{{ request.path }}">{{ request.scheme }}://portal3.{{ g.sld }}{{ request.path }}</a></strong></code>
-</li>
-{% endset %}
-
 {% block main %}
 {% block static_messages %}
 {% endblock static_messages %}
@@ -17,5 +9,4 @@
 {% endblock main %}
 
 {% block additional_noscript %}
-{{ use_portal3 }}
 {% endblock %}

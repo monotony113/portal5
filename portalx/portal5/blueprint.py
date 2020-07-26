@@ -37,6 +37,11 @@ portal5 = Blueprint(
 
 
 def get_p5() -> Portal5:
+    """Return the :class Portal5: instance in the current request context.
+
+    :return: The :class Portal5: instance
+    :rtype: Portal5
+    """
     return getattr(g, 'p5', None)
 
 
@@ -238,14 +243,14 @@ def direct_fetch(requested: SplitResult):
     return fetch(resolve_url(requested, prefix='direct'))
 
 
-@portal5.route('/<path:requested>', methods=('GET',))
+@portal5.route('/<path:requested>', methods=('GET', 'POST'))
 @requires_worker
 @revalidate_if_outdated
 def request_with_worker(requested: SplitResult):
     return fetch(resolve_url(requested))
 
 
-@portal5.route('/<path:requested>', methods=('POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'))
+@portal5.route('/<path:requested>', methods=('PUT', 'DELETE', 'HEAD', 'OPTIONS'))
 def request_no_worker(requested: SplitResult):
     return fetch(resolve_url(requested))
 

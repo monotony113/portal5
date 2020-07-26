@@ -46,6 +46,7 @@ def setup_error_handling(app: Flask):
 
 
 def setup_urls(app: Flask):
+    app.static_folder = 'bundle/static'
     app.add_url_rule(
         '/<path:filename>', subdomain='static',
         endpoint='static', view_func=app.send_static_file,
@@ -79,7 +80,8 @@ def create_app(*, override=None) -> Flask:
     app = Flask(
         __name__,
         instance_relative_config=True,
-        static_folder='bundle/static',
+        static_folder=None,
+        static_url_path=None,
     )
     app.secret_key = secrets.token_urlsafe(20)
     app.config.from_object(config)

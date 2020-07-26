@@ -1,6 +1,6 @@
 // injection.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // the Free Software Foundation, either version 3 of the License, or
@@ -65,7 +65,8 @@
                 let containers = this.element.getElementsByClassName('p5-container-optional')
                 for (let i = containers.length - 1; i >= 0; i--)
                     this.isHidden = containers[i].classList.toggle('p5-hidden')
-                event.currentTarget.textContent = this.isHidden ? 'more info' : 'hide details'
+                let btn = event.currentTarget
+                btn.textContent = this.isHidden ? btn.dataset.textOff : btn.dataset.textOn
                 if (!this.console) this.initConsole()
             })
             manager.getElementById('p5-option-close').addEventListener('click', this.toggleVisible.bind(this))

@@ -8,12 +8,12 @@
         <h1><code><span class="text-weight-300">portal5</span>:{{ title }}</code></h1>
         <noscript>
             <div id="worker-noscript">
-                <h3><strong>JavaScript is not enabled</strong></h3>
-                <p><code>portal5</code> requires <strong>JavaScript</strong> to work.</p>
+                <h3><strong>{% trans %}JavaScript is not enabled{% endtrans %}</strong></h3>
+                <p><code>portal5</code> {% trans %}requires <strong>JavaScript</strong> to work.{% endtrans %}</p>
             </div>
-            <p>You may:</p>
+            <p>{% trans %}You may:{% endtrans %}</p>
             <ul>
-                <li>Enable JavaScript in your browser, or switch to a newer browser.</li>
+                <li>{% trans %}Enable JavaScript in your browser, or switch to a newer browser.{% endtrans %}</li>
                 {% block additional_noscript %}
                 {% endblock %}
             </ul>

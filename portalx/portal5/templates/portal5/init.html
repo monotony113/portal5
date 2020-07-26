@@ -14,37 +14,35 @@
 
 {% block static_messages %}
 <div id="worker-failed">
-    <h3><strong>Failed to initialize Service Worker</strong></h3>
+    <h3><strong>{% trans %}Failed to initialize Service Worker{% endtrans %}</strong></h3>
     <p>
-        <code>portal5</code> relies on a web technology called
+        <code>portal5</code> {% trans %}relies on a web technology called{% endtrans %}
         <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-        to work, which failed to initialize. The reason, if any, is displayed below.
+        {% trans %}to work, which failed to initialize. The reason, if any, is displayed below.{% endtrans %}
     </p>
-    <p>You may:</p>
+    <p>{% trans %}You may:{% endtrans %}</p>
     <ul>
-        <li>Try clearing cookies and data for this website.</li>
-        <li>Try visiting this page later.</li>
-        {{ use_portal3 }}
+        <li>{% trans %}Try clearing cookies and data for this website.{% endtrans %}</li>
+        <li>{% trans %}Try visiting this page later.{% endtrans %}</li>
     </ul>
 </div>
 
 <div id="worker-unavailable">
-    <h3><strong>Service Worker API unavailable</strong></h3>
+    <h3><strong>{% trans %}Service Worker API unavailable{% endtrans %}</strong></h3>
     <p>
-        <code>portal5</code> relies on a web technology called
+        <code>portal5</code> {% trans %}relies on a web technology called{% endtrans %}
         <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
-        to work, which is not supported by your browser. 
+        {% trans %}to work, which is not supported by your browser.{% endtrans %} 
     </p>
     <ul>
-        <li><em>(Note: Firefox disables Service Workers in Private Browsing mode)</em></li>
+        <li><em>{% trans %}(Note: Firefox disables Service Workers in Private Browsing mode){% endtrans %}</em></li>
         {% if 'MicroMessenger' in request.user_agent.string %}
-        <li><em>(If you are viewing this in WeChat, please open this page in your browser)</em></li>
+        <li><em>{% trans %}(If you are viewing this in WeChat, please open this page in your browser){% endtrans %}</em></li>
         {% endif %}
     </ul>
-    <p>You may:</p>
+    <p>{% trans %}You may:{% endtrans %}</p>
     <ul>
-        <li>Switch to a another browser.</li>
-        {{ use_portal3 }}
+        <li>{% trans %}Switch to a another browser.{% endtrans %}</li>
     </ul>
 </div>
 {% endblock %}

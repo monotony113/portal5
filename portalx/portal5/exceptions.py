@@ -14,13 +14,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from flask_babel import _
+
 from ..exceptions import PortalHTTPException
 
 
 class Portal5SettingsNotSaved(PortalHTTPException):
     def __init__(self, **kwargs):
         desc = [
-            '<p class="color-red-fg">Your preferences have not been saved.</p>',
-            '<a href="/settings">Click here to go back to Settings</a>',
+            '<p class="color-red-fg">' + _('Your preferences have not been saved.') + '</p>',
+            '<a href="/settings">' + _('Click here to go back to Settings') + '</a>',
         ]
         super().__init__(description=''.join(desc), status=401, **kwargs)

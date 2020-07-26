@@ -3,6 +3,7 @@ $white: #d3d3d3;
 $marker: #ffd932ee;
 $dark: #1a1a1a;
 $teal-dark: #1e3b53c9;
+$mist: #6e7a9144;
 
 button {
     border: none;
@@ -114,6 +115,11 @@ label {
 
         label {
             cursor: pointer;
+        }
+
+        &:focus {
+            outline: none;
+            background-color: $mist;
         }
     }
 

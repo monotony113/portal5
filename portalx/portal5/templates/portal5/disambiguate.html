@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block main %}
-<h2>We need some help ...</h2>
+<h2>{% trans %}We need some help ...{% endtrans %}</h2>
 
 <form id="mainForm" action="/~disambiguate" method="{{ info['method'] }}">
     <input type="hidden" name="referrer" required value="">
@@ -38,24 +38,36 @@
             {% endfor %}
         </div>
         <div class="actions hidden">
-            <button type="submit" name="submit-button" class="button-visit" tabindex="-1">Visit</button>
+            <button type="submit" name="submit-button" class="button-visit"
+                tabindex="-1">{% trans %}Visit{% endtrans %}</button>
         </div>
     </div>
     {% endfor %}
 </form>
 
 <p>
-    <code>portal5</code> wasn't able to determin the link to the webpage you are trying to visit.
+    <code>portal5</code> {% trans %}wasn't able to determine the link to the webpage you are trying to
+    visit.{% endtrans %}
     <br>
-    <strong>If you remember the previous webpage from which you are trying to navigate, or know the domain name of the
-        new page, please select the corresponding link from above.</strong>
+    <strong>{% trans %}If you remember the previous webpage from which you are trying to navigate, or know the domain
+        name of the
+        new page, please select the corresponding link from above.{% endtrans %}</strong>
 </p>
 
 <hr>
-<h3 class="color-gray-fg">What happened?</h3>
+<h3 class="color-gray-fg">{% trans %}What happened?{% endtrans %}</h3>
 <p class="color-gray-fg">
-    In order to correctly route web requests, <code>portal5</code> gathers (partial) URL information from various
+    {% trans -%}
+    In order to correctly route web requests,
+    {%- endtrans %}
+    <code>portal5</code>
+    {% trans -%}
+    gathers (partial) URL information from various
     places, and derives a complete URL from them. Sometimes, the information gathered aren't enough for
-    <code>portal5</code> to determine the URL. In these cases, potential locations are provided for you to choose.
+    {%- endtrans %}
+    <code>portal5</code>
+    {% trans -%}
+    to determine the URL. In these cases, potential locations are provided for you to choose.
+    {%- endtrans %}
 </p>
 {% endblock %}

@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from flask import Response, render_template
+from flask_babel import _
 from werkzeug.exceptions import HTTPException
 
 
@@ -40,12 +41,12 @@ class PortalBadRequest(PortalHTTPException):
 
 class PortalUnsupportedScheme(PortalBadRequest):
     def __init__(self, scheme, **kwargs):
-        super().__init__(f'Unsupported URL scheme "{scheme}"', **kwargs)
+        super().__init__(_('Unsupported URL scheme "%(scheme)s"', scheme=scheme), **kwargs)
 
 
 class PortalMissingDomain(PortalBadRequest):
     def __init__(self, url, **kwargs):
-        super().__init__(f'URL <code>{url}</code> missing website domain name or location.', **kwargs)
+        super().__init__(_('URL <code>%(url)s</code> missing website domain name or location.', url=url), **kwargs)
 
 
 class PortalMissingProtocol(PortalBadRequest):
