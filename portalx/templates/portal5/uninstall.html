@@ -1,0 +1,14 @@
+{% extends 'portal5/portal5.html' %}
+
+{% set title = 'uninstall' %}
+{% set variant = g.p5.get_bitmask() %}
+
+{% block scripts %}
+{{ super() }}
+<script src="/~/client/uninstall.js"></script>
+{% endblock %}
+
+{% block main %}
+{{ super() }}
+<p>Service Worker uninstalled.</p>
+{% endblock %}

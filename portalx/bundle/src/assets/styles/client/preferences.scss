@@ -1,0 +1,202 @@
+$blue: #3c709b;
+$white: #d3d3d3;
+$marker: #ffd932ee;
+$dark: #1a1a1a;
+$teal-dark: #1e3b53c9;
+$mist: #6e7a9144;
+
+button {
+    border: none;
+    margin: 0;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    cursor: pointer;
+    height: 1.4rem;
+    font-size: 1rem;
+
+    &.toggle-button {
+        width: 3rem;
+    }
+}
+
+select {
+    appearance: inherit;
+    -moz-appearance: inherit;
+    -webkit-appearance: inherit;
+
+    color: $white;
+    background-color: $blue;
+
+    border: none;
+    margin: 0;
+    padding: .1rem .5rem;
+    vertical-align: middle;
+    font-family: inherit;
+    font-weight: 700;
+    flex-shrink: 0;
+    height: 1.6rem;
+    font-size: .9rem;
+
+    max-width: 20%;
+    min-width: 100px;
+    text-overflow: ellipsis;
+
+    border-radius: 0;
+}
+
+label {
+    display: inline-block;
+}
+
+.option-container {
+    display: flex;
+    margin: 1rem 0 0 0;
+    width: 100%;
+    flex-direction: column;
+
+    &:target {
+        animation: attention 2.5s cubic-bezier(0, 0, 1, 0.15) 0s 1 normal none;
+
+        @keyframes attention {
+            0% {
+                background-color: unset;
+                box-shadow: unset;
+            }
+
+            8% {
+                background-color: $marker;
+                box-shadow: 0 0 5px 5px $marker;
+                color: #1a1a1a;
+            }
+
+            45% {
+                background-color: $marker;
+                box-shadow: 0 0 5px 5px $marker;
+                color: #1a1a1a;
+            }
+
+            100% {
+                background-color: unset;
+                box-shadow: unset;
+            }
+        }
+    }
+
+    .option {
+        display: flex;
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        margin: .17rem 0 .17rem 0;
+    }
+
+    .option-bullet {
+        display: inline-block;
+        margin: 0 .4rem auto 0;
+    }
+
+    .option-description {
+        margin: 0 0 0 1.5rem;
+
+        p {
+            margin-bottom: 0;
+        }
+    }
+
+    .option-name {
+        margin: 0;
+        display: flex;
+        margin: 0 .4rem 0;
+        cursor: pointer;
+
+        label {
+            cursor: pointer;
+        }
+
+        &:focus {
+            outline: none;
+            background-color: $mist;
+        }
+    }
+
+    .multi-option-confirm {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        margin: 0;
+
+        &.hidden {
+            display: none;
+        }
+
+        h6 {
+            margin: .5rem 0 .5rem 0;
+            flex-basis: 100%;
+            text-align: right;
+        }
+    }
+}
+
+.form-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin: 2rem 0 0.5rem 0;
+
+    button {
+        width: initial;
+        height: 2rem;
+        font-size: 1.3rem;
+    }
+
+    p {
+        margin: 0 1rem 0 0;
+    }
+}
+
+.form-postscript {
+    display: flex;
+    align-items: flex-end;
+    flex-flow: column;
+
+    * {
+        width: max-content;
+        margin: 0 0 .5rem;
+    }
+
+    h6 {
+        margin: 0.5rem 0;
+        text-align: end;
+    }
+}
+
+.message-flash {
+    display: none;
+
+    &:target {
+        display: initial;
+    }
+}
+
+.rotate-90d {
+    transform: rotate(90deg);
+}
+
+.collapsed {
+    display: none;
+}
+
+.highlighted {
+    background-color: $teal-dark;
+    outline: $teal-dark solid .4rem;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+br {
+    margin-top: 1rem;
+}

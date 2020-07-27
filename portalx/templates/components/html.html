@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-{% set server = request.scheme + '://' + request.host %}
-{% set static_server = request.scheme + '://' + 'static.' + g.sld %}
+{% set server = g.server_map['origins']['main'] %}
+{% set static_server = g.server_map['origins']['static'] %}
 
 <head>
     {% block meta %}
@@ -13,14 +13,14 @@
     {% endblock %}
 
     {% block scripts %}
-    <script async src="{{ static_server }}/scripts/lazy-stylesheets.js"></script>
+    <script async src="/~/client/async-css.js" referrerpolicy="no-referrer"></script>
     {% endblock %}
 
     <title>{{ title|default('', true) }}</title>
 
     {% block styles %}
-    <link rel="stylesheet" href="{{ static_server }}/styles/style.css">
-    <link rel="stylesheet" href="{{ static_server }}/styles/coloring.css">
+    <link rel="stylesheet" href="{{ static_server }}/assets/styles/style.css">
+    <link rel="stylesheet" href="{{ static_server }}/assets/styles/coloring.css">
     {% macro google_fonts(async=true) -%}
     <link rel="stylesheet" media="{{ 'none' if async else 'all' }}"
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600;700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap">

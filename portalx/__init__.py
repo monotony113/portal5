@@ -15,31 +15,27 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import secrets
-from importlib import import_module
-from pkgutil import iter_modules
 
 from dotenv import load_dotenv
 from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from . import blacklist, config, i18n, security
+from . import config, i18n
+from .app import portal5
+from .bundle import bundle
+from .utils import blacklist, security
 
 load_dotenv()
 
 
 def load_blueprints(app: Flask):
-    for importer, name, ispkg in iter_modules(__path__):
-        if ispkg:
-            module_ = import_module(f'.{name}', __name__)
-            bp = getattr(module_, 'BLUEPRINT', None)
-            if bp:
-                for blueprint in bp:
-                    app.register_blueprint(blueprint)
+    app.register_blueprint(portal5)
+    app.register_blueprint(bundle)
 
 
 def setup_error_handling(app: Flask):
     def handle_error(e):
-        return render_template('error.html', statuscode=e.code, message=e.description, unsafe_markup=getattr(e, 'unsafe_markup', False)), e.code
+        return render_template('exceptions/error.html', statuscode=e.code, message=e.description, unsafe_markup=getattr(e, 'unsafe_markup', False)), e.code
 
     for exc in (400, 401, 403, 404, 451, 500, 502, 503):
         app.register_error_handler(exc, handle_error)
@@ -52,15 +48,29 @@ def setup_urls(app: Flask):
         endpoint='static', view_func=app.send_static_file,
     )
 
+    @app.route('/favicon.ico')
+    def favicon():
+        return app.send_static_file('favicon.ico')
+
     @app.before_first_request
     def derive_server_info():
         app.config['SERVER_SLD'] = '.'.join(request.host.split('.')[-2:])
 
-
     @app.before_request
     def supply_server_info():
-        g.server_origin = f'{request.scheme}://{request.host}'
-        g.sld = app.config['SERVER_SLD']
+        sld = app.config['SERVER_SLD']
+
+        server_map = {
+            'domains': {
+                'main': app.config['SERVER_SLD'],
+                'current': request.host,
+                'static': f'static.{sld}',
+                'googleapis': '*.googleapis.com',
+                'gstatic': '*.gstatic.com',
+            },
+        }
+        server_map['origins'] = {k: f'{request.scheme}://{v}' for k, v in server_map['domains'].items()}
+        g.server_map = server_map
 
 
 def setup_debug(app: Flask):

@@ -1,0 +1,48 @@
+{% extends 'portal5/console.html' %}
+
+{% set title = 'init' %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ static_server }}/assets/styles/client/init.css">
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script async src="/~/client/init.js"></script>
+{% endblock %}
+
+{% block static_messages %}
+<div id="worker-failed">
+    <h3><strong>{% trans %}Failed to initialize Service Worker{% endtrans %}</strong></h3>
+    <p>
+        <code>portal5</code> {% trans %}relies on a web technology called{% endtrans %}
+        <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
+        {% trans %}to work, which failed to initialize. The reason, if any, is displayed below.{% endtrans %}
+    </p>
+    <p>{% trans %}You may:{% endtrans %}</p>
+    <ul>
+        <li>{% trans %}Try clearing cookies and data for this website.{% endtrans %}</li>
+        <li>{% trans %}Try visiting this page later.{% endtrans %}</li>
+    </ul>
+</div>
+
+<div id="worker-unavailable">
+    <h3><strong>{% trans %}Service Worker API unavailable{% endtrans %}</strong></h3>
+    <p>
+        <code>portal5</code> {% trans %}relies on a web technology called{% endtrans %}
+        <strong><a href="https://developers.google.com/web/fundamentals/primers/service-workers" target="_blank">Service Worker</a></strong>
+        {% trans %}to work, which is not supported by your browser.{% endtrans %} 
+    </p>
+    <ul>
+        <li><em>{% trans %}(Note: Firefox disables Service Workers in Private Browsing mode){% endtrans %}</em></li>
+        {% if 'MicroMessenger' in request.user_agent.string %}
+        <li><em>{% trans %}(If you are viewing this in WeChat, please open this page in your browser){% endtrans %}</em></li>
+        {% endif %}
+    </ul>
+    <p>{% trans %}You may:{% endtrans %}</p>
+    <ul>
+        <li>{% trans %}Switch to a another browser.{% endtrans %}</li>
+    </ul>
+</div>
+{% endblock %}

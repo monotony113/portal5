@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 
 import click
-from flask import Flask, request, g
+from flask import Flask, g, request
 from flask_babel import Babel
 
 babel = Babel()

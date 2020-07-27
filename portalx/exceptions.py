@@ -30,7 +30,7 @@ class PortalHTTPException(HTTPException, PortalException):
         self.unsafe_markup = unsafe_markup
 
     def get_response(self, environ=None):
-        return Response(render_template('error.html', statuscode=self.code, message=self.description or '', unsafe_markup=self.unsafe_markup), self.code)
+        return Response(render_template('exceptions/error.html', statuscode=self.code, message=self.description or '', unsafe_markup=self.unsafe_markup), self.code)
 
 
 class PortalBadRequest(PortalHTTPException):
@@ -55,7 +55,7 @@ class PortalMissingProtocol(PortalBadRequest):
         self.requested = requested
 
     def get_response(self, environ=None):
-        return Response(render_template('missing-protocol.html', remote=self.requested), self.code)
+        return Response(render_template('exceptions/missing-protocol.html', remote=self.requested), self.code)
 
 
 class PortalSelfProtect(PortalHTTPException):
@@ -65,4 +65,13 @@ class PortalSelfProtect(PortalHTTPException):
         self.test = test
 
     def get_response(self, environ=None):
-        return Response(render_template('server-protection.html', remote=self.url, test=self.test), 403)
+        return Response(render_template('exceptions/server-protection.html', remote=self.url, test=self.test), 403)
+
+
+class PortalSettingsNotSaved(PortalHTTPException):
+    def __init__(self, **kwargs):
+        desc = [
+            '<p class="color-red-fg">' + _('Your preferences have not been saved.') + '</p>',
+            '<a href="/settings">' + _('Click here to go back to Settings') + '</a>',
+        ]
+        super().__init__(description=''.join(desc), status=401, **kwargs)

@@ -1,19 +1,26 @@
 {
-  "name": "portalx",
-  "version": "1.0.0",
-  "description": "Scripts and styles for portalx",
-  "main": "index.js",
-  "author": "Tony Wu",
-  "license": "AGPL-3.0-or-later",
-  "eslintConfig": {
-    "env": {
-      "es6": true,
-      "node": true
+    "name": "portal5",
+    "version": "1.0.0",
+    "description": "Service Worker and DOM Parser for portal5",
+    "main": "src/main/index.js",
+    "author": {
+        "name": "Tony Wu"
+    },
+    "license": "AGPL-3.0-or-later",
+    "eslintConfig": {
+        "env": {
+            "es6": true,
+            "node": true
+        }
+    },
+    "dependencies": {
+        "parse5": "^6.0.0"
+    },
+    "devDependencies": {
+        "@types/parse5": "^5.0.3",
+        "babel-eslint": "^10.1.0"
+    },
+    "scripts": {
+        "build": "python bin/build.py"
     }
-  },
-  "scripts": {
-    "sass": "sass src/styles/:static/styles -s compressed",
-    "js": "rsync -avR src/./scripts static",
-    "build": "npm run sass && npm run js"
-  }
 }
