@@ -119,7 +119,7 @@ function noRewrite(event) {
     let request = event.request
     let requested = new URL(request.url)
     if (!(requested.protocol in { 'http:': 1, 'https:': 1 })) return event.respondWith(fetch(request.clone()))
-    if (!self.settings.prefs.local['basic_rewrite_crosssite']) {
+    if (!self.settings.prefs.local['rewrite_crosssite']) {
         if (self.server != requested.origin) return event.respondWith(fetch(request.clone()))
     }
     if (request.mode == 'navigate' && requested.pathname.slice(0, 8) == '/direct/')
@@ -281,7 +281,7 @@ async function interceptFetch(event) {
     }
     let outbound = await makeFetch(request, referrer, final)
     return doFetch(outbound, {
-        injection_dom_hijack: {
+        script_injection: {
             run: Portal5.inject,
             signal: 'hijack',
             args: [dest],

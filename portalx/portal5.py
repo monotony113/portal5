@@ -92,15 +92,16 @@ class PreferenceMixin:
         response.set_cookie(cls.COOKIE_PREFS, bitmask, max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
 
     def print_prefs(self, **kwargs):
-        prefs = {}
-        text = print_features()
+        text, groups = print_features()
+        prefs = {k: {} for k in groups}
+        groups = {s: k for k, v in groups.items() for s in v}
         for v in FEATURES_KEYS.values():
             option = {}
             option['enabled'] = v in self.prefs
             option.update(text.get(v, {'name': v}))
             if 'desc' in option:
                 option['desc'] = [line % kwargs for line in option['desc']]
-            section = prefs.setdefault(v.split('_')[0], {})
+            section = prefs[groups[v]]
             section[v] = option
         return prefs
 
@@ -158,24 +159,24 @@ class FeaturesMixin:
     def process_response(self, remote, response: Response, **kwargs):
         kwargs.update({f'request_{k}': getattr(self, k) for k in self.__slots__})
 
-        if 'basic_set_headers' in self.prefs:
+        if 'set_headers' in self.prefs:
             fetch.copy_headers(remote, response, **kwargs)
         elif 'Content-Encoding' in remote.headers:
             response.headers['Content-Encoding'] = remote.headers['Content-Encoding']
 
-        if 'basic_set_cookies' in self.prefs:
+        if 'set_cookies' in self.prefs:
             fetch.copy_cookies(remote, response, **kwargs)
 
-        if 'security_enforce_cors' in self.prefs:
+        if 'enforce_cors' in self.prefs:
             security.enforce_cors(remote, response, **kwargs)
 
-        if 'security_clear_cookies_on_navigate' in self.prefs:
+        if 'clear_cookies_on_navigate' in self.prefs:
             security.add_clear_site_data_header(remote, response, **kwargs)
 
-        if 'security_break_csp' in self.prefs:
+        if 'break_csp' in self.prefs:
             csp = security.break_csp(remote, response, **kwargs)
 
-            if 'injection_dom_hijack' in self.prefs:
+            if 'script_injection' in self.prefs:
                 if "'strict-dynamic'" not in csp.get('script-src', set()) | csp.get('script-src-elem', set()):
                     self.set_signal('hijack')
 
@@ -257,14 +258,14 @@ class WorkerSignalMixin:
 
 
 FEATURES_KEYS = {
-    0: 'basic_rewrite_crosssite',
-    1: 'basic_set_headers',
-    2: 'basic_set_cookies',
-    3: 'disambiguation_test_url',
-    4: 'security_enforce_cors',
-    5: 'security_break_csp',
-    6: 'security_clear_cookies_on_navigate',
-    7: 'injection_dom_hijack',
+    0: 'rewrite_crosssite',
+    1: 'set_headers',
+    2: 'set_cookies',
+    3: 'disambiguate_via_head',
+    4: 'enforce_cors',
+    5: 'break_csp',
+    6: 'clear_cookies_on_navigate',
+    7: 'script_injection',
 }
 FEATURES_VALUES = {v: k for k, v in FEATURES_KEYS.items()}
 
@@ -393,28 +394,31 @@ class Portal5(PostprocessingMixin, WorkerSignalMixin, JWTMixin, PreferenceMixin,
 
 def print_features():
     return {
-        'basic_rewrite_crosssite': dict(
+        'rewrite_crosssite': dict(
             name=_('Redirect cross-site requests'),
             desc=[
                 _('Let Service Worker intercept and redirect cross-site requests (those to a different domain) through this tool.'),
                 _('If disabled, only redirect requests made to the same domain as that of the webpage.'),
+                _('<em>Unless there is a particular reason to do otherwise, you should leave this on.</em>'),
             ],
         ),
-        'basic_set_headers': dict(
+        'set_headers': dict(
             name=_('Forward HTTP headers'),
             desc=[
                 _('Forward HTTP headers received from the remote server.'),
                 _('Disabling this most likely will break websites.'),
+                _('<em>Unless there is a particular reason to do otherwise, you should leave this on.</em>'),
             ],
         ),
-        'basic_set_cookies': dict(
+        'set_cookies': dict(
             name=_('Forward cookies'),
             desc=[
                 _('Forward cookies received from the remote server, changing their domain and path values as appropriate.'),
                 _('Note: This does not affect cookies set by scripts on the webpage. These cookies may not be set with proper domains/paths.'),
+                _('<em>Unless there is a particular reason to do otherwise, you should leave this on.</em>'),
             ],
         ),
-        'disambiguation_test_url': dict(
+        'disambiguate_via_head': dict(
             name=_('Test URLs in case of ambiguities'),
             desc=[
                 _('<em>If <code>portal5</code> cannot determine the correct URL to the webpage you are visiting, test a list of possible URLs to narrow it down.</em>'),
@@ -425,11 +429,11 @@ def print_features():
                 _('Additionally, this may not work if one of the sites does not return an appropriate status code for a non-existent URL.'),
             ],
         ),
-        'security_enforce_cors': dict(
+        'enforce_cors': dict(
             name=_('Emulate browser CORS behavior'),
             desc=[
                 _(
-                    'Recommended for enforcing the <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy">same-origin policy</a>.'
+                    'Recommended for enforcing the <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy">same-origin policy</a>. '
                     '<em>Modify the <code>Access-Control-Allow-Origin</code> header following these rules:</em>',
                 ),
                 '<ul>'
@@ -443,7 +447,7 @@ def print_features():
                 _('If disabled, the <code>Access-Control-Allow-Origin</code> is transmitted unmodified.'),
             ],
         ),
-        'security_break_csp': dict(
+        'break_csp': dict(
             name=_('Bypass Content Security Policy (CSP) protection'),
             desc=[
                 _(
@@ -460,7 +464,7 @@ def print_features():
             ],
             color='yellow',
         ),
-        'security_clear_cookies_on_navigate': dict(
+        'clear_cookies_on_navigate': dict(
             name=_('Clear cookies between cross-site visits'),
             desc=[
                 _('<em>Delete all cookies when you navigate from one page to another page on a different domain.</em>'),
@@ -479,7 +483,7 @@ def print_features():
                 _('Note: This option relies on the <code>Clear-Site-Data</code> header to work, which is not supported by all browsers.'),
             ],
         ),
-        'injection_dom_hijack': dict(
+        'script_injection': dict(
             name=_('Enable script injection'),
             desc=[
                 _(
@@ -487,7 +491,7 @@ def print_features():
                     'the ability to modify all contents on a webpage.</em>',
                 ),
                 _(
-                    '<em>This makes it possible to intercept navigations that goes to a different domain.</em> Before, if you click on a link on a webpage that '
+                    '<em>This makes it possible to intercept navigations that goes to a different domain.</em> Without this feature, if you click on a link on a webpage that '
                     'goes to a different domain, your browser will visit that domain directly, bypassing Service Worker altogether, and you will '
                     'exit this tool. Rewriting these URLs makes sure you stay on',
                 ) + ' <code>%(server_origin)s</code>',
@@ -496,11 +500,28 @@ def print_features():
                     'without rewriting their URLs, requests to these contents will bypass Service Worker, which means that they may not load correctly.',
                 ),
                 _(
-                    'Note: This feature has a <strong>major impact</strong> on webpage performance, especially for webpages that generate their contents dynamically, '
+                    'Note: This feature has a <strong>significant impact</strong> on webpage performance, especially for webpages that generate their contents dynamically, '
                     'such as progressive web apps, because it works by monitoring and responding to every change in the webpage, (see '
                     '<a href="https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver" target="_blank">Mutation Observer</a> for some details).'
                 ),
             ],
             color='blue',
         ),
+    }, {
+        _('security'): [
+            'enforce_cors',
+            'break_csp',
+            'clear_cookies_on_navigate',
+        ],
+        _('disambiguation'): [
+            'disambiguate_via_head',
+        ],
+        _('advanced'): [
+            'script_injection',
+        ],
+        _('basics'): [
+            'rewrite_crosssite',
+            'set_headers',
+            'set_cookies',
+        ],
     }
