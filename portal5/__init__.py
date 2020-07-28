@@ -16,7 +16,6 @@
 
 import secrets
 
-from dotenv import load_dotenv
 from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -24,8 +23,6 @@ from . import config, i18n
 from .app import portal5
 from .bundle import bundle
 from .utils import blacklist, security
-
-load_dotenv()
 
 
 def load_blueprints(app: Flask):

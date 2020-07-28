@@ -1,6 +1,6 @@
 #!/usr/local/bin/zsh
 
-MODULE='portalx'
+MODULE='portal5'
 BUNDLE=./$MODULE/bundle
 
 (

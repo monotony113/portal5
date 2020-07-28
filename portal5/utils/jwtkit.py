@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import json
 import time
 import uuid
 from collections.abc import Hashable, Mapping, MutableSet
@@ -22,7 +23,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 import jwt
-import simplejson
 from flask import Flask, _app_ctx_stack, current_app, request
 from pytz import UTC
 
@@ -126,7 +126,7 @@ class JWTKit:
         }.items() if v}
 
         with self.encoder_context(iat=iat):
-            payload[aud] = simplejson.loads(simplejson.dumps(claims, ensure_ascii=False, default=self._json_encoder_default, encoding='utf8'))
+            payload[aud] = json.loads(json.dumps(claims, ensure_ascii=False, default=self._json_encoder_default))
 
         return self.encode_token(payload)
 
