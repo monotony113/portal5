@@ -101,9 +101,18 @@ class Portal5 {
                 let body = null
                 if (text.length) {
                     let document = parse5.parse(text)
+                    let count = 0
+                    Injector.mapTree(
+                        document,
+                        (node) => {
+                            count += Injector.rewriteURLAttributes(node, base)
+                        },
+                        'childNodes'
+                    )
                     let observer = Injector.makeElementNode('script', {
                         src: `/~/client/injection.js?args=${btoa(JSON.stringify({ base: base }))}`,
                         referrerpolicy: 'no-referrer',
+                        'data-p5-initial-count': count.toString(),
                     })
                     let head = Injector.dfsFirstInTree(document, (node) => node.tagName === 'head', 'childNodes')
                     Injector.prepend(head, observer)

@@ -22,8 +22,60 @@ self.urlRules = JSON.parse('{{ url_rules|default(dict({"":0}))|tojson }}')
 if (self.settings.vendor) importScripts('{{ g.server_map["origins"]["static"] }}/vendor.min.js')
 
 const { Portal5 } = require('./portal5')
-const { Rewriters } = require('./rewriter')
 const { TranscientStorage, ClientRecordStorage, Utils } = require('./utils')
+
+function synthesizeURL(base, referrer, requested, prefix) {
+    let synthesized = {
+        base: null,
+        ref: null,
+        dest: new URL('http://example.org'),
+    }
+
+    if (!base) base = referrer
+    if (!referrer) referrer = base
+
+    if (base) synthesized.base = new URL(base)
+
+    if (referrer) {
+        try {
+            synthesized.ref = new URL(referrer.pathname.slice(1))
+            synthesized.ref.search = referrer.search
+            synthesized.ref.hash = referrer.hash
+        } catch (e) {
+            if (base) {
+                synthesized.ref = new URL(referrer)
+                synthesized.ref.protocol = base.protocol
+                synthesized.ref.host = base.host
+            }
+        }
+    }
+
+    if (prefix != requested.origin) {
+        synthesized.dest = new URL(requested)
+    } else {
+        try {
+            synthesized.dest = new URL(requested.pathname.slice(1))
+        } catch (e) {
+            if (synthesized.ref) {
+                synthesized.dest = new URL(synthesized.ref)
+            } else {
+                synthesized.dest = new URL(prefix)
+            }
+            synthesized.dest.pathname = requested.pathname
+        }
+    }
+
+    synthesized.dest.search = requested.search
+    synthesized.dest.hash = requested.hash
+
+    try {
+        synthesized.dest = new URL(Utils.trimPrefix(synthesized.dest.href, prefix + '/'), prefix)
+    } catch (e) {
+        ;() => {}
+    }
+
+    return synthesized
+}
 
 function securityCheck(event) {
     /** @type {Request} */
@@ -306,10 +358,10 @@ async function resolveFetch(event) {
     if (locations.length) {
         for (let i = 0; i < locations.length; i++) {
             let represented = locations[i]
-            destinations.push(Rewriters.synthesizeURL(represented, referrer, requested, self.server))
+            destinations.push(synthesizeURL(represented, referrer, requested, self.server))
         }
     } else {
-        destinations.push(Rewriters.synthesizeURL(null, referrer, requested, self.server))
+        destinations.push(synthesizeURL(null, referrer, requested, self.server))
     }
 
     return destinations

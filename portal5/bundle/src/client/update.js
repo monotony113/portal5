@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-const { Logger } = require('./logger')
-const { retryWithInterval } = require('./utils')
+const { Logger, retryWithInterval } = require('./utils')
 const logger = new Logger()
 
 async function update() {

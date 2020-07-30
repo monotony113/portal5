@@ -187,6 +187,9 @@
                     break
             }
         }
+
+        let updateCount = document.querySelector('[data-p5-initial-count]').dataset.p5InitialCount
+        this.stat.updateCount = parseInt(updateCount) || 0
     },
     start() {
         this.init()

@@ -55,4 +55,29 @@ function retryWithInterval(precondition, timeout = 0, ttl = 5) {
     })
 }
 
-module.exports = { Preferences2, retryWithInterval }
+class Logger {
+    constructor() {
+        this.output = null
+        this.deferredOutput = []
+        window.addEventListener('DOMContentLoaded', () => {
+            for (let action of this.deferredOutput) action()
+        })
+    }
+    log(msg, fd) {
+        return new Promise(() => {
+            if (!fd) fd = console.log
+            fd(msg)
+            if (!this.output) this.output = document.querySelector('#console')
+            if (this.output) {
+                let code = document.createElement('code')
+                code.append(msg, document.createElement('br'))
+                if (fd === console.error) code.className = 'color-red-fg'
+                this.output.appendChild(code)
+            } else {
+                this.deferredOutput.push(() => this.log(msg, fd))
+            }
+        })
+    }
+}
+
+module.exports = { Preferences2, retryWithInterval, Logger }

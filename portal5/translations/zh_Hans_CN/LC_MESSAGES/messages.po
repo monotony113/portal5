@@ -34,7 +34,7 @@ msgstr "设置保存失败，"
 
 #: portal5/exceptions.py:75
 msgid "Click here to go back to Settings"
-msgstr "点此返回。"
+msgstr "点此返回"
 
 #: portal5/portal5.py:398
 msgid "Redirect cross-site requests"
