@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 import jwt
-from flask import Flask, _app_ctx_stack, current_app, request
+from flask import Flask, _app_ctx_stack, current_app
 from pytz import UTC
 
 
@@ -53,7 +53,7 @@ class JWTKit:
 
         @app.before_first_request
         def get_iss():
-            iss = f'{request.scheme}://{request.host}'
+            iss = app.config['SERVER_MAP']['origins']['main']
             self._iss = iss
             self._aud = iss
             self._claims['iss'] = iss

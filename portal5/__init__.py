@@ -49,32 +49,26 @@ def setup_urls(app: Flask):
     def favicon():
         return app.send_static_file('favicon.ico')
 
+
+def setup_context(app: Flask):
     @app.before_first_request
     def derive_server_info():
-        app.config['SERVER_SLD'] = '.'.join(request.host.split('.')[-2:])
-
-    @app.before_request
-    def supply_server_info():
-        sld = app.config['SERVER_SLD']
-
+        main = app.config['SERVER_NAME']
         server_map = {
             'domains': {
-                'main': app.config['SERVER_SLD'],
-                'current': request.host,
-                'static': f'static.{sld}',
+                'main': main,
+                'static': f'static.{main}',
                 'googleapis': '*.googleapis.com',
                 'gstatic': '*.gstatic.com',
             },
         }
         server_map['origins'] = {k: f'{request.scheme}://{v}' for k, v in server_map['domains'].items()}
-        g.server_map = server_map
 
+        app.config['SERVER_MAP'] = server_map
 
-def setup_debug(app: Flask):
-    if not app.debug:
-        return
-
-    app.wsgi_app = ProxyFix(app.wsgi_app)
+    @app.before_request
+    def supply_server_info():
+        g.server_map = app.config['SERVER_MAP']
 
 
 def setup_jinja(app: Flask):
@@ -92,19 +86,21 @@ def create_app(*, override=None) -> Flask:
     )
     app.secret_key = secrets.token_urlsafe(20)
     app.config.from_object(config)
-    app.config.from_object(override or {})
     app.config.from_pyfile('config.py', silent=True)
     app.config.from_json('secrets.json', silent=True)
+    app.config.from_object(override or {})
+
+    app.wsgi_app = ProxyFix(app.wsgi_app)
+
+    setup_context(app)
+    setup_jinja(app)
 
     security.setup_jwt(app)
     blacklist.setup_filters(app)
-
-    setup_jinja(app)
     i18n.setup_languages(app)
 
     setup_urls(app)
     setup_error_handling(app)
-    setup_debug(app)
     load_blueprints(app)
 
     return app

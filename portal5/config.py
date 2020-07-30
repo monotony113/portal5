@@ -14,10 +14,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+
 # PORTAL_URL_FILTERS = [
 #     dict(name='*', description='all URLs', test=lambda r: True),
 #     dict(name='http://*', description='No plain-text HTTP', test=lambda r: urlsplit(r.url).scheme == 'http'),
 # ]
+
+SERVER_NAME = os.getenv('SERVER_NAME')
+
+SECRET_KEY = os.getenv('SECRET_KEY')
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+PORTAL5_SECRET_KEY = os.getenv('PORTAL5_SECRET_KEY')
+PORTAL5_WORKER_CODENAME = os.getenv('PORTAL5_WORKER_CODENAME')
 
 PORTAL5_PASSTHROUGH_DOMAINS = {'fonts.googleapis.com', 'fonts.gstatic.com'}
 # PORTAL5_PASSTHROUGH_URLS = {}

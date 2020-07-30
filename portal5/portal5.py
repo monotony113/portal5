@@ -89,7 +89,7 @@ class PreferenceMixin:
             bitmask = ''
         else:
             bitmask = str(p5.get_bitmask())
-        response.set_cookie(cls.COOKIE_PREFS, bitmask, max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
+        response.set_cookie(cls.COOKIE_PREFS, bitmask, max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True, samesite='Lax')
 
     def print_prefs(self, **kwargs):
         text, groups = print_features()
@@ -146,7 +146,7 @@ class PreferenceMixin2:
         if p5.mode == 'navigate':
             response.set_cookie(
                 cls.COOKIE_PREFS2, base64.b64encode(json.dumps(p5.prefs2).encode()).decode('utf8'),
-                max_age=cls.COOKIE_MAX_AGE, path='/', secure=True,
+                max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, samesite='Lax',
             )
 
     def get_lang(self):
@@ -209,7 +209,7 @@ class JWTMixin:
     @classmethod
     def write_auth_cookie(cls, p5, response):
         if p5.tokens:
-            response.set_cookie(cls.COOKIE_AUTH, ' '.join(p5.tokens), max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True)
+            response.set_cookie(cls.COOKIE_AUTH, ' '.join(p5.tokens), max_age=cls.COOKIE_MAX_AGE, path='/', secure=True, httponly=True, samesite='Lax')
 
     def persist_tokens(self):
         jwtkit = JWTKit.get_jwtkit()

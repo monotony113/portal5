@@ -1,5 +1,3 @@
-#!/usr/local/bin/zsh
-
 MODULE='portal5'
 BUNDLE=./$MODULE/bundle
 

@@ -24,7 +24,7 @@ passthrough_rules = {}
 
 def collect_passthrough_urls():
     sibling_domains = {
-        f'{rule.subdomain}.{current_app.config["SERVER_SLD"]}'
+        f'{rule.subdomain}.{current_app.config["SERVER_NAME"]}'
         for rule in current_app.url_map.iter_rules()
         if rule.subdomain
     }
