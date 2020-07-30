@@ -18,7 +18,7 @@ class Logger {
     constructor() {
         this.output = null
         this.deferredOutput = []
-        window.addEventListener('load', () => {
+        window.addEventListener('DOMContentLoaded', () => {
             for (let action of this.deferredOutput) action()
         })
     }

@@ -107,6 +107,6 @@ class Form {
     }
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('DOMContentLoaded', () => {
     window.form = new Form(document.getElementById('mainForm'))
 })

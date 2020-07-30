@@ -15,25 +15,51 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 const { Logger } = require('./logger')
+const { retryWithInterval } = require('./utils')
 const logger = new Logger()
 
-window.addEventListener('load', async () => {
+async function update() {
+    let reloading = false
+    const reload = () => {
+        if (reloading) return
+        reloading = true
+        logger.log('reload')
+        history.pushState('', document.title, '#updated')
+        window.location.reload()
+    }
     try {
         if ('serviceWorker' in navigator) {
-            logger.log('updating')
+            logger.log('update worker')
             let registration = await navigator.serviceWorker.getRegistration()
+            let current = registration.active
             registration.addEventListener('updatefound', () => {
-                logger.log('waiting for update to take effect')
+                logger.log('wait for update to take effect')
                 registration.installing.addEventListener('statechange', (ev) => {
-                    if (ev.target.state === 'activated') {
-                        logger.log('refreshing')
-                        history.pushState('', document.title, '#updated')
-                        window.location.reload()
-                    }
+                    if (ev.target.state === 'activated') reload()
                 })
             })
-        }    
-    } catch(e) {
+            let isActivated = () => registration.active !== null && registration.active !== current
+            retryWithInterval(
+                (ttl) => {
+                    logger.log(`check worker status (${ttl}/10)`)
+                    let activated = isActivated()
+                    if (activated) logger.log('activated')
+                    else logger.log('still updating')
+                    return activated
+                },
+                2500,
+                10
+            )
+                .then(reload)
+                .catch(() => logger.log('service worker failed to restart', console.error))
+        }
+    } catch (e) {
         logger.log(e, console.error)
     }
-})
+}
+
+if (document.readyState !== 'loading') {
+    update()
+} else {
+    window.addEventListener('DOMContentLoaded', update)
+}

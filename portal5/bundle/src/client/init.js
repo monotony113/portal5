@@ -15,25 +15,42 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 const { Logger } = require('./logger')
+const { retryWithInterval } = require('./utils')
 const logger = new Logger()
 
 async function initServiceWorker() {
+    let reloading = false
+    const reload = () => {
+        if (reloading) return
+        reloading = true
+        let dest = new URLSearchParams(window.location.search).get('continue')
+        if (!dest) return
+        logger.log(`opening ${dest.slice(1)}`)
+        window.location = dest
+    }
     let registration = await navigator.serviceWorker.getRegistration()
     if (registration) await registration.unregister()
     try {
         logger.log('await navigator.serviceWorker.register')
         let registration = await navigator.serviceWorker.register('/~/sw.js', { scope: '/' })
         registration.addEventListener('updatefound', () => {
-            logger.log('waiting for service worker')
+            logger.log('await service worker activate')
             registration.installing.addEventListener('statechange', (ev) => {
-                if (ev.target.state === 'activated') {
-                    let dest = new URLSearchParams(window.location.search).get('continue')
-                    if (!dest) return
-                    logger.log(`opening ${dest.slice(1)}`)
-                    window.location = dest
-                }
+                if (ev.target.state === 'activated') reload()
             })
         })
+        retryWithInterval(
+            (ttl) => {
+                logger.log(`check worker status (${ttl}/10)`)
+                if (registration.active) logger.log('activated')
+                else logger.log('still installing')
+                return registration.active
+            },
+            2500,
+            10
+        )
+            .then(reload)
+            .catch(() => logger.log('service worker failed to start'))
     } catch (e) {
         logger.log(e, console.error)
         document.querySelector('#worker-failed').style.display = 'block'
@@ -44,9 +61,13 @@ function init() {
     if ('serviceWorker' in navigator) {
         initServiceWorker()
     } else {
-        logger.log('!serviceWorker in navigator')
+        logger.log('!serviceWorker in navigator', console.error)
         document.querySelector('#worker-unavailable').style.display = 'block'
     }
 }
 
-window.addEventListener('load', init)
+if (document.readyState !== 'loading') {
+    init()
+} else {
+    window.addEventListener('DOMContentLoaded', init)
+}

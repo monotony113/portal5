@@ -42,18 +42,17 @@ class Preferences2 {
     }
 }
 
-function waitForServiceWorker(timeout = 0, ttl = 5) {
+function retryWithInterval(precondition, timeout = 0, ttl = 5) {
     return new Promise((resolve, reject) => {
         setTimeout(async () => {
             ttl--
-            let status = (await fetch('/~/ping')).status
-            if (status !== 204) {
-                if (ttl) waitForServiceWorker(timeout, ttl).then(resolve).catch(reject)
-                else reject()
+            if (!(await precondition(ttl + 1))) {
+                if (ttl) return retryWithInterval(precondition, timeout, ttl).then(resolve).catch(reject)
+                else return reject()
             }
-            resolve()
+            return resolve()
         }, timeout)
     })
 }
 
-module.exports = { Preferences2, waitForServiceWorker }
+module.exports = { Preferences2, retryWithInterval }
