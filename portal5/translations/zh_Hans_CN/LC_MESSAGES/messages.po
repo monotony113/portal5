@@ -1,0 +1,618 @@
+# Chinese (Simplified, China) translations for PROJECT.
+# Copyright (C) 2020 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2020.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2020-07-30 10:17+0800\n"
+"PO-Revision-Date: 2020-07-26 14:56+0800\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_Hans_CN\n"
+"Language-Team: zh_Hans_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.8.0\n"
+
+#: portal5/exceptions.py:44
+#, python-format
+msgid "Unsupported URL scheme \"%(scheme)s\""
+msgstr "不支持 \"%(scheme)s\" 协议"
+
+#: portal5/exceptions.py:49
+#, python-format
+msgid "URL <code>%(url)s</code> missing website domain name or location."
+msgstr "链接 <code>%(url)s</code> 不包含域名或 IP 地址。"
+
+#: portal5/exceptions.py:74
+msgid "Your preferences have not been saved."
+msgstr "设置保存失败，"
+
+#: portal5/exceptions.py:75
+msgid "Click here to go back to Settings"
+msgstr "点此返回。"
+
+#: portal5/portal5.py:398
+msgid "Redirect cross-site requests"
+msgstr "重定向跨域请求"
+
+#: portal5/portal5.py:400
+msgid ""
+"Let Service Worker intercept and redirect cross-site requests (those to a"
+" different domain) through this tool."
+msgstr "令 Service Worker 代理与正在访问的网页域名不同的请求。"
+
+#: portal5/portal5.py:401
+msgid ""
+"If disabled, only redirect requests made to the same domain as that of "
+"the webpage."
+msgstr "若停用此选项，则仅代理域名相同的请求。"
+
+#: portal5/portal5.py:402 portal5/portal5.py:410 portal5/portal5.py:418
+msgid ""
+"<em>Unless there is a particular reason to do otherwise, you should leave"
+" this on.</em>"
+msgstr "<em>正常情况下本选项应保持启用。</em>"
+
+#: portal5/portal5.py:406
+msgid "Forward HTTP headers"
+msgstr "传输 HTTP 头部字段"
+
+#: portal5/portal5.py:408
+msgid "Forward HTTP headers received from the remote server."
+msgstr "下载网页数据时将网站的 HTTP 头部字段一并传回。"
+
+#: portal5/portal5.py:409
+msgid "Disabling this most likely will break websites."
+msgstr "若停用此选项，一些网站可能不会正常工作。"
+
+#: portal5/portal5.py:414
+msgid "Forward cookies"
+msgstr "传输 Cookies"
+
+#: portal5/portal5.py:416
+msgid ""
+"Forward cookies received from the remote server, changing their domain "
+"and path values as appropriate."
+msgstr "下载网页数据时将网站的 Cookies 一并传回；若 Cookie 有指定域名或路径参数，则作出相应的修改，以使其能被正常使用。"
+
+#: portal5/portal5.py:417
+msgid ""
+"Note: This does not affect cookies set by scripts on the webpage. These "
+"cookies may not be set with proper domains/paths."
+msgstr "注：由脚本设置的 Cookies 不受影响；这些 Cookies 可能无法被正常读取。"
+
+#: portal5/portal5.py:422
+msgid "Test URLs in case of ambiguities"
+msgstr "链接消歧义"
+
+#: portal5/portal5.py:424
+msgid ""
+"<em>If <code>portal5</code> cannot determine the correct URL to the "
+"webpage you are visiting, test a list of possible URLs to narrow it "
+"down.</em>"
+msgstr ""
+"<em>若 <code>portal5</code> 无法确定即将要访问的网站的链接，则对每个可能的链接进行测试，并去掉不存在的链接（如返回了 "
+"404 的链接）。</em>"
+
+#: portal5/portal5.py:425
+msgid ""
+"This is done by sending a <code>HEAD</code> request to each URL. Reduces "
+"the chances of needing to manually choose a link, at the expense of "
+"leaking URL information to sites that you did not intend to visit."
+msgstr ""
+"测试的方法是向每个链接发送一个 <code>HEAD</code> "
+"请求。这样能尽量避免需要手动选择最终链接的情况，但数据隐私将会打折扣（因为其他网站也将获取链接的内容）。"
+
+#: portal5/portal5.py:429
+msgid ""
+"Additionally, this may not work if one of the sites does not return an "
+"appropriate status code for a non-existent URL."
+msgstr "若有网站在遇到不存在的链接的时候没有返回恰当的 HTTP 状态码（如不返回 404），则消歧义可能不成功。"
+
+#: portal5/portal5.py:433
+msgid "Emulate browser CORS behavior"
+msgstr "模拟浏览器 CORS 安全机制"
+
+#: portal5/portal5.py:435
+msgid ""
+"Recommended for enforcing the <a target=\"_blank\" "
+"href=\"https://developer.mozilla.org/en-US/docs/Web/Security/Same-"
+"origin_policy\">same-origin policy</a>. <em>Modify the <code>Access-"
+"Control-Allow-Origin</code> header following these rules:</em>"
+msgstr ""
+"推荐启用，以保证<a target=\"_blank\" href=\"https://developer.mozilla.org/zh-"
+"CN/docs/Web/Security/Same-origin_policy\">同源策略</a>。<em>按照下列规则修改 <code"
+">Access-Control-Allow-Origin</code> 头部字段：</em>"
+
+#: portal5/portal5.py:440
+msgid "If it is set to <code>*</code>, it is kept unmodified"
+msgstr "若设置为 <code>*</code>，则不作修改"
+
+#: portal5/portal5.py:441
+#, python-format
+msgid ""
+"If it is set to a particular origin, then check if such origin matches "
+"the origin who requested the resource (e.g. the webpage); if it matches, "
+"the header is set to <code>%(server_origin)s</code> so that the resource "
+"will be accepted by browsers, and if it does not match, drop the <code"
+">Access-Control-Allow-Origin</code> header so that the resource will be "
+"rejected by browsers."
+msgstr ""
+"若设置为特定的来源 (origin)，则检查该来源是否与发起请求的实际来源（如网站域名）相匹配；若匹配，则将返回的 <code>Access-"
+"Control-Allow-Origin</code> 头部字段设置为 "
+"<code>%(server_origin)s</code>（本网站），以使其被浏览器正常接受；若不匹配，则意味着发起请求的网站实际上无权访问这个资源，此时将其设置为空，以使其被浏览器拒绝。"
+
+#: portal5/portal5.py:447
+msgid ""
+"If disabled, the <code>Access-Control-Allow-Origin</code> is transmitted "
+"unmodified."
+msgstr "若不启用本选项，则对 <code>Access-Control-Allow-Origin</code> 不作修改，一些资源将会无法正常加载。"
+
+#: portal5/portal5.py:451
+msgid "Bypass Content Security Policy (CSP) protection"
+msgstr "绕过内容安全策略 (CSP) 的限制"
+
+#: portal5/portal5.py:453
+#, python-format
+msgid ""
+"NOT recommended. <em>Append <code>%(server_origin)s</code> to all <a "
+"target=\"_blank\" href=\"https://developer.mozilla.org/en-"
+"US/docs/Web/Security/CSP\">CSP</a> directives that specify sources,</em> "
+"except for those that specify <code>'none'</code>. Doing so ensures that "
+"browsers can load resources as if the webpage is not proxied by this "
+"tool."
+msgstr ""
+"不推荐启用。<em>将 <code>%(server_origin)s</code> 添加到所有合适的 <a target=\"_blank\" "
+"href=\"https://developer.mozilla.org/zh-"
+"CN/docs/Web/Security/CSP\">CSP</a> 指令中。</em>这样浏览器便能正常加载受 CSP 保护的资源。"
+
+#: portal5/portal5.py:459
+msgid ""
+"<strong>However, doing so defeats the purpose of CSP,</strong> because "
+"(potentially malicious) contents that would otherwise be forbidden by CSP"
+" will now also be loaded."
+msgstr "<strong>注意：启用此设置将使网页浏览失去 CSP 的保护，</strong>因为此时潜在的恶意资源也将会被加载。"
+
+#: portal5/portal5.py:463
+msgid ""
+"If disabled, CSP headers will be transmitted unmodified, and resources "
+"protected by CSP directives may not load."
+msgstr "若停用此设置，则对 CSP 指令不作修改，而受 CSP 保护的资源将不会被加载。"
+
+#: portal5/portal5.py:468
+msgid "Clear cookies between cross-site visits"
+msgstr "跨越域名时清除 Cookies"
+
+#: portal5/portal5.py:470
+msgid ""
+"<em>Delete all cookies when you navigate from one page to another page on"
+" a different domain.</em>"
+msgstr "<em>当从一个网站跳转至另一个网站（即域名有变）时清除 Cookies.</em>"
+
+#: portal5/portal5.py:471
+msgid ""
+"One major security caveats of this tool is that website cookies that "
+"would otherwise be separated under different domains will now all stored "
+"under the same domain. Keeping cookies separate by domains ensures that "
+"one website cannot get cookies that may contain sensitive information, "
+"such as login info, of another website. When using this tool, all "
+"websites you visit may see cookies of other sites."
+msgstr ""
+"正常情况下，浏览器确保一个网站无法读取另一个网站的 "
+"Cookies，以确保登录信息等敏感信息不会被窃取；而为了确保网页经过代理后依然能正常工作，本工具会修改 Cookies "
+"的域名参数，使其能被网页正常读取——但这样做会造成安全隐患，即一个网站可以读取所有其他访问过的网站的 Cookies."
+
+#: portal5/portal5.py:477
+msgid ""
+"This option mitigates this security concern by asking your browser to "
+"clear out all cookies between visits to different websites. Visits that "
+"stay within the same site are not affected. The drawback is that you may "
+"lose some functionalities on some websites. Additionally, this option "
+"takes effect on all windows/tabs that are open, meaning that if you have "
+"multiple tabs open, and one of them navigates to a different site, "
+"cookies on all tabs will be cleared, and you may notice inconsistencies "
+"in the behaviors of the webpages you are visiting."
+msgstr ""
+"若启用本选项，则在不同网站之间跳转时，<code>portal5</code> 会要求浏览器清除本域名 "
+"(<code>%(server_origin)s</code>) 下的 "
+"Cookies，从而在一定程度上避免这样的安全隐患。缺点是若同时打开多个标签页或窗口，则其中一个页面的跳转将会导致其他页面的 Cookies "
+"也一并被清除，一些网页可能会工作不正常。"
+
+#: portal5/portal5.py:483
+msgid ""
+"Note: This option relies on the <code>Clear-Site-Data</code> header to "
+"work, which is not supported by all browsers."
+msgstr "注：本功能依赖于浏览器对 <code>Clear-Site-Data</code> 头部字段的支持。在不支持这个头部字段的浏览器上本功能没有效果。"
+
+#: portal5/bundle/www/injection-manager.html:62 portal5/portal5.py:487
+msgid "Enable script injection"
+msgstr "启用脚本注入"
+
+#: portal5/portal5.py:489
+msgid ""
+"Experimental feature. <em>Allow Service Worker to <strong>inject "
+"scripts</strong> into an HTML document, granting this tool the ability to"
+" modify all contents on a webpage.</em>"
+msgstr "进阶选项。<em>允许 Service Worker 向网页中<strong>注入脚本，</strong>并允许脚本修改网页内容。</em>"
+
+#: portal5/portal5.py:493
+msgid ""
+"<em>This makes it possible to intercept navigations that goes to a "
+"different domain.</em> Without this feature, if you click on a link on a "
+"webpage that goes to a different domain, your browser will visit that "
+"domain directly, bypassing Service Worker altogether, and you will exit "
+"this tool. Rewriting these URLs makes sure you stay on"
+msgstr ""
+"<em>这样本工具便能够代理跨域名的网页跳转。</em>在不启用本选项时，<code>portal5</code> "
+"仅能代理由网页本身发起的跨域名请求（如加载图片），而当你在一个网页上点击目的地为另一个网站的超链接时，浏览器会直接访问这个新的网站，此时本工具将无法正确代理新的网页。<br/>若启用本选项，则在网页跳转时新的网页的域名仍会是"
+" "
+
+#: portal5/portal5.py:498
+msgid ""
+"<em>This allows requests to embedded contents such as "
+"<code>iframe</code>s to go through this tool.</em> Same as above: without"
+" rewriting their URLs, requests to these contents will bypass Service "
+"Worker, which means that they may not load correctly."
+msgstr ""
+"<em>同时，若启用本选项，<code>portal5</code> 便能够代理在网页中嵌入的其他网页（如 "
+"<code>iframe</code>）。</em>原理同上。在不启用本选项时，在加载嵌入式网页时浏览器会跳过本工具。"
+
+#: portal5/portal5.py:502
+msgid ""
+"Note: This feature has a <strong>significant impact</strong> on webpage "
+"performance, especially for webpages that generate their contents "
+"dynamically, such as progressive web apps, because it works by monitoring"
+" and responding to every change in the webpage, (see <a "
+"href=\"https://developer.mozilla.org/en-"
+"US/docs/Web/API/MutationObserver\" target=\"_blank\">Mutation "
+"Observer</a> for some details)."
+msgstr ""
+"注：<strong>启用本功能会显著降低网页加载速度</strong>，尤其是对动态生成的网页而言。这是因为本功能需要一直追踪网页内容的所有变化（参见"
+" <a href=\"https://developer.mozilla.org/zh-"
+"CN/docs/Web/API/MutationObserver\" target=\"_blank\">Mutation "
+"Observer</a>）"
+
+#: portal5/portal5.py:511
+msgid "security"
+msgstr "安全设置"
+
+#: portal5/portal5.py:516
+msgid "disambiguation"
+msgstr "消歧义"
+
+#: portal5/portal5.py:519
+msgid "advanced"
+msgstr "进阶功能"
+
+#: portal5/portal5.py:522
+msgid "basics"
+msgstr "基础功能"
+
+#: portal5/bundle/src/client/preferences.js:114
+msgid "Enabling"
+msgstr "启用"
+
+#: portal5/bundle/src/client/preferences.js:115
+msgid "Disabling"
+msgstr "停用"
+
+#: portal5/bundle/src/client/preferences.js:117
+msgid "enable"
+msgstr "启用"
+
+#: portal5/bundle/src/client/preferences.js:118
+msgid "disable"
+msgstr "停用"
+
+#: portal5/bundle/www/injection-manager.html:7
+msgid "Page content has been modified"
+msgstr "页面内容已经过修改"
+
+#: portal5/bundle/www/injection-manager.html:9
+msgid ""
+"To allow <code>portal5</code> to work better, the following content has "
+"been modified by a script\n"
+"            that is injected into this page:"
+msgstr "<code>portal5</code> 在此页面中注入了一个脚本，且以下内容已被该脚本修改："
+
+#: portal5/bundle/www/injection-manager.html:15
+msgid "All hyperlinks and resource URLs on this page"
+msgstr "所有超链接及资源链接（如图片链接）"
+
+#: portal5/bundle/www/injection-manager.html:19
+#: portal5/bundle/www/injection-manager.html:21
+msgid "more info"
+msgstr "更多信息"
+
+#: portal5/bundle/www/injection-manager.html:20
+msgid "hide details"
+msgstr "收起"
+
+#: portal5/bundle/www/injection-manager.html:27
+msgid "don't show again"
+msgstr "不再提示"
+
+#: portal5/bundle/www/injection-manager.html:30
+msgid "close"
+msgstr "关闭"
+
+#: portal5/bundle/www/injection-manager.html:35
+msgid ""
+"<code>portal5</code> rewrites URLs on this webpage so that they can be "
+"re-routed correctly.\n"
+"            Such modification happens locally. <code>portal5</code> does "
+"not track or record your page activity,\n"
+"            nor does it store the web data that has been delivered to you."
+msgstr ""
+"<code>portal5</code> "
+"重新生成了本页面上的链接，以便能够更快速地进行重定向。对链接的重写在浏览器本地进行。<code>portal5</code> "
+"不会上传或者记录这些链接，也不会保存网页的内容。"
+
+#: portal5/bundle/www/injection-manager.html:42
+msgid ""
+"However, script injection like this inherently compromises the webpage's "
+"security.\n"
+"            <code>portal5</code> does not guarantee the integrity and "
+"correctness of the modification\n"
+"            nor the security of the resulting page."
+msgstr ""
+"但要注意的是，以此种方式注入脚本及修改网页会使网页的安全性打折扣。<code>portal5</code> "
+"不保证修改过后的网页内容的正确性和完整性，也不保证网页绝对安全。"
+
+#: portal5/bundle/www/injection-manager.html:49
+msgid ""
+"<em>You are browsing this webpage at your own risk.</em>\n"
+"            <br>Please do not load or enter any sensitive information\n"
+"            while using this tool."
+msgstr ""
+"<em><code>portal5</code> 不承担因修改网页内容所造成的风险。</em>\n"
+"            <br>使用本工具时请不要在网页中输入重要或敏感的信息。"
+
+#: portal5/bundle/www/injection-manager.html:58
+msgid ""
+"You are seeing this because you are using <code>portal5</code>, and you "
+"have the"
+msgstr "本提示显示的原因是你在设置中启用了 "
+
+#: portal5/bundle/www/injection-manager.html:63
+msgid "option turned on."
+msgstr "的功能"
+
+#: portal5/templates/exceptions/error.html:22
+#, python-format
+msgid "(Not to be confused with %(http_451)s)"
+msgstr "（注：本错误不是 %(http_451)s）"
+
+#: portal5/templates/exceptions/missing-protocol.html:8
+msgid "No URL scheme specified."
+msgstr "没有注明 URL 协议"
+
+#: portal5/templates/exceptions/missing-protocol.html:9
+msgid "Did you mean to go to"
+msgstr "您要找的是不是 "
+
+#: portal5/templates/exceptions/server-protection.html:7
+msgid "Limited service"
+msgstr "有限度的服务"
+
+#: portal5/templates/exceptions/server-protection.html:9
+#, python-format
+msgid ""
+"To protect <code><strong>%(server)s</strong></code> and this tool from "
+"being detected, flagged, rate-limited,\n"
+"        or blacklisted by upstream servers, requests to certain domains "
+"and URLs are currently limited."
+msgstr ""
+"为防止 <code><strong>%(server)s</strong></code> "
+"及本工具被上游服务器识别或屏蔽，对一些域名或地址的访问当前受到限制。"
+
+#: portal5/templates/exceptions/server-protection.html:15
+msgid "Requested URL:"
+msgstr "试图访问的链接："
+
+#: portal5/templates/exceptions/server-protection.html:18
+msgid "Filter matched:"
+msgstr "当前生效的规则："
+
+#: portal5/templates/exceptions/server-protection.html:20
+msgid "(No description)"
+msgstr "（没有描述）"
+
+#: portal5/templates/portal5/disambiguate.html:16
+msgid "We need some help ..."
+msgstr "获取到了多个跳转链接，请选择："
+
+#: portal5/templates/portal5/disambiguate.html:42
+msgid "Visit"
+msgstr "跳转"
+
+#: portal5/templates/portal5/disambiguate.html:49
+msgid ""
+"wasn't able to determine the link to the webpage you are trying to\n"
+"    visit."
+msgstr "无法确定你想要访问的网页的正确链接。"
+
+#: portal5/templates/portal5/disambiguate.html:52
+msgid ""
+"If you remember the previous webpage from which you are trying to "
+"navigate, or know the domain\n"
+"        name of the\n"
+"        new page, please select the corresponding link from above."
+msgstr "若您记得在这之前访问的是哪个网站，或知道您想要访问的网站的域名，请在上方的选项中选择其中一个"
+
+#: portal5/templates/portal5/disambiguate.html:58
+msgid "What happened?"
+msgstr "为什么会这样？"
+
+#: portal5/templates/portal5/disambiguate.html:60
+msgid "In order to correctly route web requests,"
+msgstr "在代理网页请求的时候"
+
+#: portal5/templates/portal5/disambiguate.html:64
+msgid ""
+"gathers (partial) URL information from various\n"
+"    places, and derives a complete URL from them. Sometimes, the "
+"information gathered aren't enough for"
+msgstr "会从多个地方获取不完整的链接信息，并依此推导出完整的最终链接；但有时，"
+
+#: portal5/templates/portal5/disambiguate.html:69
+msgid ""
+"to determine the URL. In these cases, potential locations are provided "
+"for you to choose."
+msgstr "无法获取足够的信息来进行推导。这时，<code>portal5</code>会提供所有可能的链接供你选择。"
+
+#: portal5/templates/portal5/init.html:17
+msgid "Failed to initialize Service Worker"
+msgstr "Service Worker 加载失败"
+
+#: portal5/templates/portal5/init.html:19
+#: portal5/templates/portal5/init.html:34
+msgid "relies on a web technology called"
+msgstr "依赖于 "
+
+#: portal5/templates/portal5/init.html:22
+msgid ""
+"to work, which failed to initialize. The reason, if any, is displayed "
+"below."
+msgstr ", 但脚本加载失败了。错误原因在下方显示。"
+
+#: portal5/templates/portal5/init.html:24
+#: portal5/templates/portal5/init.html:46
+#: portal5/templates/portal5/portal5.html:14
+msgid "You may:"
+msgstr "你可以："
+
+#: portal5/templates/portal5/init.html:26
+msgid "Try clearing cookies and data for this website."
+msgstr "尝试清除本网站的 Cookies 和缓存数据。"
+
+#: portal5/templates/portal5/init.html:27
+msgid "Try visiting this page later."
+msgstr "尝试稍后再访问本网站。"
+
+#: portal5/templates/portal5/init.html:32
+msgid "Service Worker API unavailable"
+msgstr "Service Worker API 不可用"
+
+#: portal5/templates/portal5/init.html:37
+msgid "to work, which is not supported by your browser."
+msgstr ", 但你的浏览器似乎不支持 Service Worker."
+
+#: portal5/templates/portal5/init.html:40
+msgid "(Note: Firefox disables Service Workers in Private Browsing mode)"
+msgstr "（注：Firefox 在私密浏览模式中会禁用 Service Worker）"
+
+#: portal5/templates/portal5/init.html:42
+msgid "(If you are viewing this in WeChat, please open this page in your browser)"
+msgstr "（微信用户请在浏览器中打开）"
+
+#: portal5/templates/portal5/init.html:48
+msgid "Switch to a another browser."
+msgstr "换用另一个浏览器。"
+
+#: portal5/templates/portal5/portal5.html:11
+msgid "JavaScript is not enabled"
+msgstr "JavaScript 不受支持"
+
+#: portal5/templates/portal5/portal5.html:12
+msgid "requires <strong>JavaScript</strong> to work."
+msgstr "需要 <strong>JavaScript</strong> 来运作。"
+
+#: portal5/templates/portal5/portal5.html:16
+msgid "Enable JavaScript in your browser, or switch to a newer browser."
+msgstr "在浏览器中启用 JavaScript，或换用支持 JavaScript 的浏览器。"
+
+#: portal5/templates/portal5/preferences.html:16
+msgid "interface"
+msgstr "界面设置"
+
+#: portal5/templates/portal5/preferences.html:19
+msgid "Language"
+msgstr "语言 / Language"
+
+#: portal5/templates/portal5/preferences.html:48
+msgid " this will also "
+msgstr "本选项会同时"
+
+#: portal5/templates/portal5/preferences.html:49
+msgid " highlighted options"
+msgstr "高亮显示的其他选项"
+
+#: portal5/templates/portal5/preferences.html:51
+msgid "cancel"
+msgstr "取消"
+
+#: portal5/templates/portal5/preferences.html:52
+msgid "continue"
+msgstr "确定"
+
+#: portal5/templates/portal5/preferences.html:68
+msgid "Your preferences have been updated."
+msgstr "设置已更新"
+
+#: portal5/templates/portal5/preferences.html:70
+msgid "Save preferences"
+msgstr "保存设置"
+
+#: portal5/templates/portal5/preferences.html:74
+msgid "Reset defaults"
+msgstr "重置"
+
+#: portal5/templates/portal5/preferences.html:76
+msgid "Uninstall"
+msgstr "卸载"
+
+#: portal5/templates/portal5/update.html:11
+msgid "Applying your preferences..."
+msgstr "正在保存设置"
+
+#: portal5/templates/portal5/update.html:13
+msgid "This page should automatically refresh within a few seconds."
+msgstr "页面将自动刷新，请稍候"
+
+#: portal5/utils/fetch.py:107
+#, python-format
+msgid "Got HTTP %(code)d while accessing <code>%(url)s</code>"
+msgstr "在访问 <code>%(url)s</code> 时收到了状态码 HTTP %(code)d"
+
+#: portal5/utils/fetch.py:109
+#, python-format
+msgid "Unable to access <code>%(url)s</code><br/>Too many redirects."
+msgstr "无法访问 <code>%(url)s</code>，因为跳转次数过多。"
+
+#: portal5/utils/fetch.py:111
+#, python-format
+msgid ""
+"Unable to access <code>%(url)s</code><br/>An TLS/SSL error occured, "
+"remote server may not support HTTPS."
+msgstr "无法访问 <code>%(url)s</code>，因为遇到了 TLS/SSL 错误，远端服务器可能不支持 HTTPS."
+
+#: portal5/utils/fetch.py:113
+#, python-format
+msgid ""
+"Unable to access <code>%(url)s</code><br/>Resource may not exist, or be "
+"available to the server, or outgoing traffic at the server may be "
+"disrupted."
+msgstr "无法访问 <code>%(url)s</code><br/>资源可能不存在，或无法被服务器读取，也有可能服务器遇到了网络问题。"
+
+#: portal5/utils/fetch.py:115
+#, python-format
+msgid ""
+"\n"
+"        <pre><code>An unhandled error occured while processing this "
+"request.\n"
+"        Parsed URL: %(url)s\n"
+"        Error name: %(error)s</code></pre>\n"
+"        "
+msgstr ""
+"\n"
+"        <pre><code>访问此链接时服务器遇到了不可恢复的错误。\n"
+"        链接: %(url)s\n"
+"        错误: %(error)s</code></pre>\n"
+"        "
+
