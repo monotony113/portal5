@@ -225,7 +225,7 @@
         observatory: undefined,
         isHidden: true,
         attached: false,
-        pref2: new (require('./preferences2').Preferences2)(),
+        pref2: new (require('./utils').Preferences2)(),
         /**
          *
          * @param {HTMLBodyElement} body

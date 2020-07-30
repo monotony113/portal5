@@ -120,6 +120,14 @@ def service_worker():
     return response
 
 
+@bundle.route('/ping')
+def ping():
+    p5 = get_p5()
+    if p5.up_to_date:
+        return '', 204
+    return '', 400
+
+
 @bundle.route('/client/preferences.js')
 @mimetype('js')
 def preferences():

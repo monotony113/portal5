@@ -14,33 +14,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-var output = null
-var domDeferred = []
-
-function log(msg, fd) {
-    return new Promise(() => {
-        if (!fd) fd = console.log
-        fd(msg)
-        if (!output) output = document.querySelector('#console')
-        if (output) output.append(msg + '\n')
-        else domDeferred.push(() => log(msg, fd))
-    })
-}
+const { Logger } = require('./logger')
+const logger = new Logger()
 
 async function initServiceWorker() {
-    const waitAndReload = async () => {
-        let dest = new URLSearchParams(window.location.search).get('continue')
-        log(`opening ${dest.slice(1)}`)
-        window.location = dest
-    }
     let registration = await navigator.serviceWorker.getRegistration()
     if (registration) await registration.unregister()
     try {
-        log('await navigator.serviceWorker.register')
-        await navigator.serviceWorker.register(`/~/sw.js`, { scope: '/' })
-        await waitAndReload()
+        logger.log('await navigator.serviceWorker.register')
+        let registration = await navigator.serviceWorker.register('/~/sw.js', { scope: '/' })
+        registration.addEventListener('updatefound', () => {
+            logger.log('waiting for service worker')
+            registration.installing.addEventListener('statechange', (ev) => {
+                if (ev.target.state === 'activated') {
+                    let dest = new URLSearchParams(window.location.search).get('continue')
+                    if (!dest) return
+                    logger.log(`opening ${dest.slice(1)}`)
+                    window.location = dest
+                }
+            })
+        })
     } catch (e) {
-        log(e, console.error)
+        logger.log(e, console.error)
         document.querySelector('#worker-failed').style.display = 'block'
     }
 }
@@ -49,12 +44,9 @@ function init() {
     if ('serviceWorker' in navigator) {
         initServiceWorker()
     } else {
-        log('!serviceWorker in navigator')
+        logger.log('!serviceWorker in navigator')
         document.querySelector('#worker-unavailable').style.display = 'block'
     }
 }
 
-window.addEventListener('load', () => {
-    for (let action of domDeferred) action()
-})
 window.addEventListener('load', init)

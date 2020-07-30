@@ -14,12 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-window.addEventListener('load', () => history.replaceState('', document.title, '/settings'))
+const { Logger } = require('./logger')
+const logger = new Logger()
+
 window.addEventListener('load', async () => {
-    if ('serviceWorker' in navigator) {
-        let registration = await navigator.serviceWorker.getRegistration()
-        await registration.update()
-        history.pushState('', document.title, '#updated')
-        window.location.reload()
+    try {
+        if ('serviceWorker' in navigator) {
+            logger.log('updating')
+            let registration = await navigator.serviceWorker.getRegistration()
+            registration.addEventListener('updatefound', () => {
+                logger.log('waiting for update to take effect')
+                registration.installing.addEventListener('statechange', (ev) => {
+                    if (ev.target.state === 'activated') {
+                        logger.log('refreshing')
+                        history.pushState('', document.title, '#updated')
+                        window.location.reload()
+                    }
+                })
+            })
+        }    
+    } catch(e) {
+        logger.log(e, console.error)
     }
 })

@@ -1,6 +1,15 @@
-{% extends 'components/blank.html' %}
+{% extends 'portal5/console.html' %}
 
 {% block scripts %}
 {{ super() }}
 <script src="/~/client/update.js"></script>
+{% endblock %}
+
+{% block main %}
+{{ super() }}
+<p>
+    <span class="color-blue-fg">{% trans %}Applying your preferences...{% endtrans %}</span>
+    <br />
+    {% trans %}This page should automatically refresh within a few seconds.{% endtrans %}
+</p>
 {% endblock %}

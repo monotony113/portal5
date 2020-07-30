@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-const pref2 = new (require('./preferences2').Preferences2)()
+const pref2 = new (require('./utils').Preferences2)()
 
 const dependencies = JSON.parse('{{ dep|default(dict({"":0}))|tojson }}')
 const requirements = JSON.parse('{{ req|default(dict({"":0}))|tojson }}')

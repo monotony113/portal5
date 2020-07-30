@@ -18,6 +18,10 @@ $monospace: 'Fira Code',
 'Courier New',
 monospace;
 
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     margin: 0;
 
@@ -27,6 +31,9 @@ body {
     font-family: $cjk-serif;
 
     font-size: 12pt;
+
+    width: 100vw;
+    overflow-x: hidden;
 }
 
 main {
@@ -161,7 +168,7 @@ ul {
 }
 
 li {
-    padding: 0 0 0.5rem;
+    padding: 0;
     text-indent: -5px;
 
     &:before {

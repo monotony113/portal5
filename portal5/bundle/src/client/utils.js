@@ -1,4 +1,4 @@
-// preferences2.js
+// utils.js
 // Copyright (C) 2020  Tony Wu <tony[dot]wu(at)nyu[dot]edu>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -42,4 +42,18 @@ class Preferences2 {
     }
 }
 
-module.exports = { Preferences2 }
+function waitForServiceWorker(timeout = 0, ttl = 5) {
+    return new Promise((resolve, reject) => {
+        setTimeout(async () => {
+            ttl--
+            let status = (await fetch('/~/ping')).status
+            if (status !== 204) {
+                if (ttl) waitForServiceWorker(timeout, ttl).then(resolve).catch(reject)
+                else reject()
+            }
+            resolve()
+        }, timeout)
+    })
+}
+
+module.exports = { Preferences2, waitForServiceWorker }
