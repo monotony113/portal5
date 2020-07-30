@@ -159,12 +159,10 @@ def get_prefs():
 @security.expects_jwt_in('cookies', key=Portal5.COOKIE_AUTH)
 @security.rejects_jwt_where(
     security.jwt_is_not_supplied,
-    respond_with=lambda *__, **_: exceptions.PortalSettingsNotSaved(),
-)
-@security.rejects_jwt_where(
     security.jwt_has_invalid_subject,
     security.jwt_does_not_claim(_privilege='nochange'),
     Portal5.jwt_version_is_outdated,
+    respond_with=lambda *__, **_: exceptions.PortalSettingsNotSaved(),
 )
 @security.access_control_same_origin
 @security.csp_protected

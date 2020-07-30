@@ -224,14 +224,17 @@
         console: undefined,
         observatory: undefined,
         isHidden: true,
-        attached: false,
         pref2: new (require('./utils').Preferences2)(),
         /**
          *
          * @param {HTMLBodyElement} body
          */
-        async attach(body) {
-            if (this.attached) return
+        async attach(body, manual = false) {
+            if (this.element) return
+
+            let shouldHide = this.pref2.get('nopopup') && !manual
+            if (shouldHide) return
+
             let template = document.createElement('template')
             if (!('content' in template)) return
             let templateString = await fetch('/~/injection-manager.html', {
@@ -241,6 +244,8 @@
             template.innerHTML = templateString
 
             let manager = this.initInterface(template.content)
+            if (shouldHide) manager.classList.add('p5-hidden')
+
             let isolated = document.createElement('div')
             let shadowRoot = isolated.attachShadow({ mode: 'closed' })
             shadowRoot.append(manager)
@@ -253,7 +258,6 @@
             }).then((r) => r.text())
             template.innerHTML = templateString
             document.getElementsByTagName('head')[0].append(template.content)
-            this.attached = true
         },
         initInterface(manager) {
             manager.getElementById('p5-option-more-info').addEventListener('click', (event) => {
@@ -269,11 +273,7 @@
             let doNotShow = manager.getElementById('p5-option-disable-warning')
             doNotShow.addEventListener('change', this.setCookie.bind(this))
             let element = manager.getElementById('p5-injection-manager')
-            if (this.pref2.get('nopopup')) {
-                element.classList.add('p5-hidden')
-                doNotShow.checked = true
-            }
-
+            if (this.pref2.get('nopopup')) doNotShow.checked = true
             return element
         },
         initConsole() {
@@ -337,7 +337,8 @@
             this.pref2.set('nopopup', event.currentTarget.checked)
         },
         toggleVisible() {
-            return this.element.classList.toggle('p5-hidden')
+            if (this.element) return this.element.classList.toggle('p5-hidden')
+            else this.attach(document.body, true)
         },
     },
 }.start())
